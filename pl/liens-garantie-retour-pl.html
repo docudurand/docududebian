@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!--liens garantie/retour PL-->
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Liens Garantie et Retour PL</title>
+
+  <link rel="stylesheet" href="../assets/style.css" />
+  <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#e9efff">
+
+  <style>
+    .status { margin-top: 10px; font-size: 14px; opacity: .9; }
+    .status.ok { color: #0f5132; }
+    .status.err { color: #842029; }
+    .list a{
+      display:block; margin:8px 0; padding:12px 14px;
+      border-radius:10px; background:rgba(255,255,255,.65);
+      border:1px solid rgba(0,0,0,.08);
+      text-decoration:none; font-weight:800; line-height:1.25;
+    }
+    .list a:hover{ filter:brightness(0.98); }
+  </style>
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="brand-left">
+    <a href="/index.html" class="brand-link" aria-label="Retour à l'accueil">
+      <img src="https://raw.githubusercontent.com/docudurand/mes-formulaires/main/logo2.png" alt="Documents Durand">
+    </a>
+  </div>
+
+  <nav class="nav" aria-label="Menus">
+    <div class="menu is-active" data-menu="pl">
+      <button class="menu-btn" type="button">MENU PL</button>
+      <div class="dropdown" role="menu" aria-label="Menu PL">
+        <a href="../pl/formulaire-creation-reference-pl.html" role="menuitem">FORMULAIRE CREATION REFERENCE PL</a>
+        <a href="../pl/fournisseur-pl.html" role="menuitem">FOURNISSEUR PL</a>
+        <a href="../pl/liens-garantie-retour-pl.html" role="menuitem">LIENS FORMULAIRE GARANTIE ET RETOUR PL</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="vl">
+      <button class="menu-btn" type="button">MENU VL</button>
+      <div class="dropdown" role="menu" aria-label="Menu VL">
+        <a href="../vl/formulaire-creation-reference-vl.html" role="menuitem">FORMULAIRE CREATION REFERENCE VL / VUL</a>
+        <a href="../vl/formulaire-creation-reference-pneumatique.html" role="menuitem">FORMULAIRE CREATION PNEUMATIQUE</a>
+        <a href="../vl/fournisseur-vl.html" role="menuitem">FOURNISSEUR VL</a>
+        <a href="../vl/retour-fournisseur-garantie-vl.html" role="menuitem">RETOUR FOURNISSEUR ET GARANTIE VL</a>
+        <a href="../vl/liens-formulaire-garantie.html" role="menuitem">LIENS FORMULAIRE GARANTIE VL</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="util">
+      <button class="menu-btn" type="button">UTILITAIRE</button>
+      <div class="dropdown" role="menu" aria-label="Menu Utilitaire">
+        <a href="../utilitaire/pret-vehicule.html" role="menuitem">PRET VEHICULE</a>
+        <a href="../utilitaire/demande-ramasse.html" role="menuitem">DEMANDE RAMASSE</a>
+        <a href="../utilitaire/suivi-kilometrique-chauffeur.html" role="menuitem">SUIVI KILOMETRIQUE CHAUFFEUR TEST</a>
+        <a href="../utilitaire/castrol.html" role="menuitem">CASTROL</a>
+        <a href="../utilitaire/site-identification-oe.html" role="menuitem">SITE IDENTIFIANT OE</a>
+        <a href="../utilitaire/contact-fournisseur.html" role="menuitem">CONTACTS FOURNISSEURS</a>
+        <a href="../utilitaire/reference-compliques.html" role="menuitem">REFERENCE COMPLIQUES</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="atelier">
+      <button class="menu-btn" type="button">ATELIER</button>
+      <div class="dropdown" role="menu" aria-label="Menu Atelier">
+        <a href="../docatelier/service-atelier-demande.html" role="menuitem">SERVICE ATELIER</a>
+        <a href="../docatelier/documents-atelier.html" role="menuitem">DOCUMENTS ATELIER</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="garantie">
+      <a class="menu-btn menu-link" href="../gestion-garantie.html">GESTION GARANTIE</a>
+    </div>
+  </nav>
+
+  <div class="brand-right">
+    <img src="https://raw.githubusercontent.com/docudurand/mes-formulaires/main/durand_services_logo.png" alt="Durand Services">
+  </div>
+</header>
+
+<div class="subbar"></div>
+
+<main class="wrap">
+  <section class="card">
+    <div class="content">
+      <div class="h1">LIENS FORMULAIRE GARANTIE ET RETOUR PL</div>
+
+
+      <div id="status" class="status">Chargement…</div>
+      <div id="list" class="list" aria-label="Liste des liens"></div>
+    </div>
+  </section>
+</main>
+
+<script>window.__SITE_PREFIX__="../";</script>
+<script src="../assets/auth.js"></script>
+<script>requireAuth();</script>
+<script src="../assets/app.js"></script>
+
+<script>
+(function(){
+  const API_PATH = "/api/pl/liens-garantie-retour";
+  const FALLBACK_ORIGIN = "";
+
+  const statusEl = document.getElementById("status");
+  const listEl   = document.getElementById("list");
+
+  let items = [];
+
+  function render(){
+    listEl.innerHTML = "";
+
+    if (!items.length){
+      statusEl.style.display = "";
+      statusEl.className = "status ok";
+      statusEl.textContent = "Aucun lien configuré (JSON vide).";
+      return;
+    }
+
+    statusEl.className = "status ok";
+    statusEl.textContent = "";
+    statusEl.style.display = "none";
+
+    items.forEach(it => {
+      const a = document.createElement("a");
+      a.href = it.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = it.label || it.url;
+      listEl.appendChild(a);
+    });
+  }
+
+  function adaptData(raw){
+    let arr = raw;
+
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      if (Array.isArray(raw.links)) arr = raw.links;
+      else if (Array.isArray(raw.data)) arr = raw.data;
+      else if (Array.isArray(raw.items)) arr = raw.items;
+    }
+
+    if (!Array.isArray(arr)) return [];
+
+    return arr.map(x => {
+      const label = (x?.label ?? x?.titre ?? x?.name ?? x?.title ?? "").toString().trim();
+      const url   = (x?.url   ?? x?.lien  ?? x?.link ?? x?.href  ?? "").toString().trim();
+      return { label, url };
+    }).filter(x => x.url);
+  }
+
+  async function fetchJSON(url){
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
+
+  async function load(){
+    statusEl.style.display = "";
+    statusEl.className = "status";
+    statusEl.textContent = "Chargement…";
+
+    try {
+      const raw = await fetchJSON(location.origin + API_PATH);
+      items = adaptData(raw);
+      render();
+      return;
+    } catch (e1) {
+
+      const msg = String(e1?.message || e1);
+      if (!msg.includes("HTTP 404")) throw e1;
+    }
+
+    const raw2 = await fetchJSON(FALLBACK_ORIGIN + API_PATH);
+    items = adaptData(raw2);
+    render();
+  }
+
+  load().catch(err => {
+    console.error(err);
+    statusEl.className = "status err";
+    statusEl.textContent = "Erreur chargement JSON : " + err.message;
+    listEl.innerHTML = "";
+  });
+})();
+</script>
+
+</body>
+</html>

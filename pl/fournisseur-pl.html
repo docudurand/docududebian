@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<!--fournisseurs PL-->
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fournisseur PL</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+  <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#e9efff">
+
+  <style>
+    .card.padless { padding: 0; }
+    .table-wrap { overflow: auto; max-height: calc(100vh - 170px); }
+    table.fourn-table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    .fourn-table thead th{
+      text-align:center;
+      font-weight:700;
+      padding:14px 16px;
+      border:1px solid #e6e6e6;
+      background:#fff;
+    }
+    .fourn-table tbody td{
+      vertical-align:top;
+      padding:14px 16px;
+      border:1px solid #e6e6e6;
+      background:#fff;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+.col-fourn{ width: 32%; text-align:center; }
+.fourn-table tbody td:first-child { text-align:center; }
+    .col-code{ width: 18%; text-align:center; }
+    .col-pieces{ width: 50%; }
+
+    .sep-row td{
+      padding:0 !important;
+      height:22px;
+      background:#6f767d !important;
+      border-color:#6f767d !important;
+    }
+
+    .fourn-table thead th{
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+  </style>
+</head>
+
+<body>
+<header class="topbar">
+  <div class="brand-left">
+    <a href="/index.html" class="brand-link" aria-label="Retour à l'accueil">
+      <img src="https://raw.githubusercontent.com/docudurand/mes-formulaires/main/logo2.png" alt="Documents Durand">
+    </a>
+  </div>
+
+  <nav class="nav" aria-label="Menus">
+    <div class="menu is-active" data-menu="pl">
+      <button class="menu-btn" type="button">MENU PL</button>
+      <div class="dropdown" role="menu" aria-label="Menu PL">
+        <a href="../pl/formulaire-creation-reference-pl.html" role="menuitem">FORMULAIRE CREATION REFERENCE PL</a>
+        <a href="../pl/fournisseur-pl.html" rel="noopener" role="menuitem">FOURNISSEUR PL</a>
+        <a href="../pl/liens-garantie-retour-pl.html" role="menuitem">LIENS FORMULAIRE GARANTIE ET RETOUR PL</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="vl">
+      <button class="menu-btn" type="button">MENU VL</button>
+      <div class="dropdown" role="menu" aria-label="Menu VL">
+        <a href="../vl/formulaire-creation-reference-vl.html" role="menuitem">FORMULAIRE CREATION REFERENCE VL / VUL</a>
+        <a href="../vl/formulaire-creation-reference-pneumatique.html" role="menuitem">FORMULAIRE CREATION PNEUMATIQUE</a>
+        <a href="../vl/fournisseur-vl.html" rel="noopener" role="menuitem">FOURNISSEUR VL</a>
+        <a href="../vl/retour-fournisseur-garantie-vl.html" rel="noopener" role="menuitem">RETOUR FOURNISSEUR ET GARANTIE VL</a>
+        <a href="../vl/liens-formulaire-garantie.html" role="menuitem">LIENS FORMULAIRE GARANTIE VL</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="util">
+      <button class="menu-btn" type="button">UTILITAIRE</button>
+      <div class="dropdown" role="menu" aria-label="Menu Utilitaire">
+        <a href="../utilitaire/pret-vehicule.html" rel="noopener" role="menuitem">PRET VEHICULE</a>
+        <a href="../utilitaire/demande-ramasse.html" rel="noopener" role="menuitem">DEMANDE RAMASSE</a>
+        <a href="../utilitaire/suivi-kilometrique-chauffeur.html" role="menuitem">SUIVI KILOMETRIQUE CHAUFFEUR TEST</a>
+        <a href="../utilitaire/castrol.html" role="menuitem">CASTROL</a>
+        <a href="../utilitaire/site-identification-oe.html" role="menuitem">SITE IDENTIFIANT OE</a>
+        <a href="../utilitaire/contact-fournisseur.html" role="menuitem">CONTACTS FOURNISSEURS</a>
+        <a href="../utilitaire/reference-compliques.html" role="menuitem">REFERENCE COMPLIQUES</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="atelier">
+      <button class="menu-btn" type="button">ATELIER</button>
+      <div class="dropdown" role="menu" aria-label="Menu Atelier">
+        <a href="../docatelier/service-atelier-demande.html" role="menuitem">SERVICE ATELIER</a>
+        <a href="../docatelier/documents-atelier.html" role="menuitem">DOCUMENTS ATELIER</a>
+      </div>
+    </div>
+
+    <div class="menu" data-menu="garantie">
+      <a class="menu-btn menu-link" href="../gestion-garantie.html">GESTION GARANTIE</a>
+    </div>
+  </nav>
+
+  <div class="brand-right">
+    <img src="https://raw.githubusercontent.com/docudurand/mes-formulaires/main/durand_services_logo.png" alt="Durand Services">
+  </div>
+</header>
+
+<div class="subbar"></div>
+
+<main class="wrap">
+  <section class="card padless">
+    <div class="table-wrap" aria-label="Tableau fournisseurs PL">
+      <table class="fourn-table">
+        <thead>
+          <tr>
+            <th class="col-fourn">FOURNISSEURS</th>
+            <th class="col-code">CODE</th>
+            <th class="col-pieces">PIECES</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>ALDER</td><td class="col-code">331</td><td>BOUTEILLES&nbsp;&nbsp;AIR<br>PIECES CARROSSERIE</td></tr>
+          <tr><td>APREVIA</td><td class="col-code">1220</td><td>PIECES ORIGINE RVI / IVECO (SITE GROUPEMENT GTRUCK)</td></tr>
+          <tr><td>ATS</td><td class="col-code">1343</td><td>PIECES BUS</td></tr>
+          <tr><td>APS REMATRUCK</td><td class="col-code">1561</td><td>PIECES : BV / PONT / BOITIER DIRECTION</td></tr>
+          <tr><td>ASSALI STEFEN</td><td class="col-code">A</td><td>PIECES ASSALI + ROR</td></tr>
+          <tr><td>ASPOCK</td><td class="col-code">1148</td><td>FEUX ASPOCK / PROPLAST</td></tr>
+          <tr><td>AFHYMAT</td><td class="col-code">1088</td><td>RESERVOIRS HYDRAULIQUE</td></tr>
+          <tr><td>ALS SERVICES</td><td class="col-code">1544</td><td>PIECES KAISER / FREINAGE</td></tr>
+          <tr><td>ATTELAGE MG</td><td class="col-code">1503</td><td>CROCHETS MG</td></tr>
+          <tr><td>AUTOVER DIMA</td><td class="col-code">80</td><td>PARE BRISE&nbsp;&nbsp;/ JOINTS</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>BOSCH</td><td class="col-code">004</td><td>PIECES BOSCH ( SITE GROUPEMENT&nbsp;&nbsp;GTRUCK - LE HELLO )</td></tr>
+          <tr><td>BG DIFFUSION</td><td class="col-code">254</td><td>PIECES MOTEUR&nbsp;&nbsp;/ FILETS RAPPORTÉS</td></tr>
+          <tr><td>BPW SAIRO</td><td class="col-code">1143</td><td>PIECES BPW (VOIR EGALEMENT GROUPEMENT)</td></tr>
+          <tr><td>BREMSTAR</td><td class="col-code">1300</td><td>PIECES FREINAGE</td></tr>
+          <tr><td>BRIGADE ELECTRONIQUE</td><td class="col-code">1527</td><td>FAISCEAUX ELECTRIQUES&nbsp;&nbsp;/ DEPANNAGE&nbsp;&nbsp;/ DIAG</td></tr>
+          <tr><td>BRIDGEWAY</td><td class="col-code">1299</td><td>ROULEMENTS / MOYEUX</td></tr>
+          <tr><td>BSB</td><td class="col-code">1179</td><td>AMORTISSEURS</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>CARGO</td><td class="col-code">1099</td><td>ALTERNATEUR / DEMARREUR / PIECES ELECTRIQUES</td></tr>
+          <tr><td>CARRARO</td><td class="col-code">1303</td><td>PONTS / TRANSMISSIONS</td></tr>
+          <tr><td>CAUTEX</td><td class="col-code">1358</td><td>PIECES CAOUTCHOUC</td></tr>
+          <tr><td>CEVA / ZF</td><td class="col-code">1399</td><td>PIECES ZF (BOITES DE VITESSES / PONTS)</td></tr>
+          <tr><td>CHALLENGER</td><td class="col-code">1557</td><td>PIECES REMORQUES</td></tr>
+          <tr><td>CIM</td><td class="col-code">1467</td><td>PIECES REMORQUES</td></tr>
+          <tr><td>CLARKE</td><td class="col-code">1568</td><td>PIECES CHASSIS&nbsp;&nbsp;/ BENNE</td></tr>
+          <tr><td>COBO</td><td class="col-code">1188</td><td>RETROS / OPTIQUES</td></tr>
+          <tr><td>COLAR</td><td class="col-code">1396</td><td>FILTRES / AIR / CABINE</td></tr>
+          <tr><td>CONTITECH</td><td class="col-code">1245</td><td>COURROIES / DURITES</td></tr>
+          <tr><td>CORTECO</td><td class="col-code">649</td><td>JOINTS / ETANCHEITE</td></tr>
+          <tr><td>COJALI</td><td class="col-code">1325</td><td>DIAGNOSTIC / ELECTRONIQUE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>DELFINGER</td><td class="col-code">1197</td><td>OUTILLAGE / EQUIPEMENT</td></tr>
+          <tr><td>DELPHI</td><td class="col-code">860</td><td>INJECTION</td></tr>
+          <tr><td>DINEX</td><td class="col-code">1382</td><td>ECHAPPEMENT</td></tr>
+          <tr><td>DT SPARE PARTS</td><td class="col-code">1125</td><td>PIECES MULTIMARQUES</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>EATON</td><td class="col-code">1431</td><td>EMBRAYAGE / TRANSMISSION</td></tr>
+          <tr><td>ELRING</td><td class="col-code">1105</td><td>JOINTS MOTEUR</td></tr>
+          <tr><td>EMMERRE</td><td class="col-code">1508</td><td>PIECES REMORQUES</td></tr>
+          <tr><td>EUROPLEX</td><td class="col-code">1312</td><td>VITRAGE / OPTIQUES</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>FAG</td><td class="col-code">1227</td><td>ROULEMENTS</td></tr>
+          <tr><td>FEBI</td><td class="col-code">1124</td><td>PIECES MULTIMARQUES</td></tr>
+          <tr><td>FERSA</td><td class="col-code">1470</td><td>ROULEMENTS</td></tr>
+          <tr><td>FTE</td><td class="col-code">1321</td><td>EMETTEURS / RECEPTEURS EMBRAYAGE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>GATES</td><td class="col-code">1338</td><td>COURROIES / DURITES</td></tr>
+          <tr><td>GEORG FISCHER</td><td class="col-code">1554</td><td>PIECES ECHAPPEMENT</td></tr>
+          <tr><td>GIRLING</td><td class="col-code">1530</td><td>FREINAGE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>HALDEX</td><td class="col-code">1129</td><td>FREINAGE / SUSPENSION</td></tr>
+          <tr><td>HENGST</td><td class="col-code">1398</td><td>FILTRES</td></tr>
+          <tr><td>HUTCHINSON</td><td class="col-code">1097</td><td>PIECES CAOUTCHOUC</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>IVECO</td><td class="col-code">1107</td><td>ORIGINE IVECO</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>JOST</td><td class="col-code">1079</td><td>SELLES / PIECES ATTELAGE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>KNORR-BREMSE</td><td class="col-code">1109</td><td>FREINAGE</td></tr>
+          <tr><td>KONI</td><td class="col-code">1372</td><td>AMORTISSEURS</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>LECITRAILER</td><td class="col-code">1555</td><td>PIECES REMORQUES</td></tr>
+          <tr><td>LEMA</td><td class="col-code">1334</td><td>DIRECTION / SUSPENSION</td></tr>
+          <tr><td>LUCAS</td><td class="col-code">1531</td><td>FREINAGE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>MAHLE</td><td class="col-code">1111</td><td>FILTRES / THERMOSTATS</td></tr>
+          <tr><td>MAN</td><td class="col-code">1112</td><td>ORIGINE MAN</td></tr>
+          <tr><td>MANN FILTER</td><td class="col-code">1201</td><td>FILTRES</td></tr>
+          <tr><td>MERITOR</td><td class="col-code">1114</td><td>PONTS / FREINAGE</td></tr>
+          <tr><td>MOTRIO</td><td class="col-code">1113</td><td>PIECES RENAULT TRUCKS / MOTRIO</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>NISSENS</td><td class="col-code">1524</td><td>REFROIDISSEMENT</td></tr>
+          <tr><td>NK</td><td class="col-code">1529</td><td>FREINAGE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>OE</td><td class="col-code">OE</td><td>ORIGINE CONSTRUCTEURS</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>PAI</td><td class="col-code">1556</td><td>PIECES MOTEUR</td></tr>
+          <tr><td>PE AUTOMOTIVE</td><td class="col-code">1123</td><td>PIECES MULTIMARQUES</td></tr>
+          <tr><td>PNEUMACLIC</td><td class="col-code">PNEU</td><td>PNEUMATIQUES</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>RENAULT TRUCKS</td><td class="col-code">1115</td><td>ORIGINE RENAULT TRUCKS</td></tr>
+          <tr><td>ROBERT-LYE</td><td class="col-code">99</td><td>PIECES CARROSSERIE</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>SACHS</td><td class="col-code">1116</td><td>EMBRAYAGE / AMORTISSEURS</td></tr>
+          <tr><td>SAF HOLLAND</td><td class="col-code">1117</td><td>PIECES REMORQUES</td></tr>
+          <tr><td>SAS</td><td class="col-code">154</td><td>PIECES (selon dépôt)</td></tr>
+          <tr><td>SEIM</td><td class="col-code">214</td><td>PIECES (selon dépôt)</td></tr>
+          <tr><td>SESALY</td><td class="col-code">40</td><td>PIECES (selon dépôt)</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>TRW</td><td class="col-code">1119</td><td>FREINAGE / DIRECTION</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>VALEO</td><td class="col-code">1120</td><td>EMBRAYAGE / REFROIDISSEMENT</td></tr>
+          <tr><td>VOLVO</td><td class="col-code">1121</td><td>ORIGINE VOLVO</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>WABCO</td><td class="col-code">1122</td><td>FREINAGE / ELECTRONIQUE</td></tr>
+          <tr><td>WEBASTO</td><td class="col-code">1507</td><td>CHAUFFAGE / CLIM</td></tr>
+          <tr><td>WYNNS</td><td class="col-code">1528</td><td>ADDITIFS</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+
+          <tr><td>ZF</td><td class="col-code">1118</td><td>TRANSMISSION</td></tr>
+
+          <tr class="sep-row"><td colspan="3"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>window.__SITE_PREFIX__="../";</script>
+<script src="../assets/auth.js"></script>
+<script>requireAuth();</script>
+<script src="../assets/app.js"></script>
+</body>
+</html>
