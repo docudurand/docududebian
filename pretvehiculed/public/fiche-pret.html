@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<!--fiche pret vehicule (impression)-->
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fiche prêt véhicule</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --primary:#004080; --accent:#00a7e1; --bg:#f5f9fc; --ink:#073763; --line:#e5e7eb; --ok:#2e7d32; --err:#c62828; --scale:1.2; --bw:calc(1px*var(--scale)); }
+    *{box-sizing:border-box} html{font-size:calc(100%*var(--scale));}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;color:var(--ink)}
+    .wrap{max-width:calc(960px*var(--scale));margin:calc(24px*var(--scale)) auto;padding:calc(16px*var(--scale))}
+    h1{font-size:1.6rem;margin:0 0 calc(6px*var(--scale));text-align:center}
+    .sub{opacity:.8;text-align:center;margin-bottom:calc(18px*var(--scale))}
+    .card{background:#fff;border:var(--bw) solid var(--line);border-radius:calc(14px*var(--scale));padding:calc(16px*var(--scale));box-shadow:0 calc(6px*var(--scale)) calc(18px*var(--scale)) #0001}
+    .row{display:grid;gap:calc(12px*var(--scale))}
+    @media(min-width:680px){ .row.cols-2{grid-template-columns:1fr 1fr} .row.cols-3{grid-template-columns:1fr 1fr 1fr}}
+    label{font-weight:600;margin-bottom:calc(4px*var(--scale));display:block}
+    input,select,textarea{width:100%;padding:calc(10px*var(--scale)) calc(12px*var(--scale));border:var(--bw) solid var(--line);border-radius:calc(10px*var(--scale))}
+    textarea{min-height:calc(84px*var(--scale))}
+    .btns{display:flex;flex-wrap:wrap;gap:calc(10px*var(--scale));margin-top:calc(14px*var(--scale))}
+    button{border:0;border-radius:calc(12px*var(--scale));padding:calc(10px*var(--scale)) calc(14px*var(--scale));cursor:pointer;font-weight:700}
+    .btn{background:var(--primary);color:#fff}
+    .btn-sec{background:#eef5ff;color:var(--primary);border:var(--bw) solid #d6e6ff}
+    .btn-ghost{background:#fff;border:var(--bw) solid var(--line)}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    .tag{display:inline-block;padding:calc(4px*var(--scale)) calc(8px*var(--scale));border-radius:999px;border:var(--bw) solid var(--line);background:#fafafa}
+    .notice{margin-top:calc(8px*var(--scale))}
+    .notice .muted{opacity:.85}
+
+    .attBar{display:flex;align-items:center;gap:10px}
+    .thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+    .thumb{position:relative;width:120px;height:120px;border:var(--bw) solid var(--line);border-radius:12px;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .thumb img{max-width:100%;max-height:100%}
+    .thumb .file{font-size:.9rem;font-weight:700;opacity:.7}
+    .thumb .x{position:absolute;top:6px;right:6px;border:0;background:#fff;border:1px solid #e0e0e0;border-radius:999px;width:26px;height:26px;line-height:24px;text-align:center;cursor:pointer}
+    .thumb .cap{position:absolute;left:0;right:0;bottom:0;background:#0006;color:#fff;font-size:.75rem;padding:2px 6px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+
+    .pdfMask{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:10000;padding:calc(20px*var(--scale))}
+    .pdfBox{width:min(900px,96vw);height:min(90vh,800px);background:#fff;border-radius:calc(14px*var(--scale));overflow:hidden;display:flex;flex-direction:column;border:var(--bw) solid var(--line)}
+    .pdfBar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:var(--bw) solid var(--line);background:#f8fbff}
+    .pdfBar .actions{display:flex;gap:8px}
+    #pdfFrame{flex:1;width:100%;border:0}
+    #printForm{display:none}
+
+    .modalMask{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;padding:calc(20px*var(--scale));z-index:9999}
+    .modal{background:#fff;border-radius:calc(14px*var(--scale));max-width:calc(520px*var(--scale));width:100%;padding:calc(16px*var(--scale));border:var(--bw) solid var(--line);box-shadow:0 calc(10px*var(--scale)) calc(24px*var(--scale)) #0003}
+
+    .invalid{ border-color: var(--err) !important; box-shadow: 0 0 0 2px #c628280f; }
+    .thumbs.invalid{ border:2px dashed var(--err); border-radius:12px; padding:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DURAND SERVICES</h1>
+    <div class="sub">Fiche prêt véhicule (Magasin)</div>
+
+    <div class="card">
+      <div class="row cols-2">
+        <div>
+          <label for="store">Magasin</label>
+          <select id="store" required aria-required="true"></select>
+        </div>
+        <div>
+          <label for="vehicle">Véhicule (immatriculation)</label>
+          <select id="vehicle" required aria-required="true"></select>
+          <div class="notice" id="vehInfo"></div>
+        </div>
+      </div>
+
+      <div class="row cols-2" style="margin-top:calc(10px*var(--scale))">
+        <div>
+          <label for="chauffeur">Nom du chauffeur</label>
+          <input id="chauffeur" type="text" placeholder="Nom du chauffeur" required aria-required="true"/>
+        </div>
+      </div>
+
+      <div class="row cols-3" style="margin-top:calc(10px*var(--scale))">
+        <div>
+          <label for="dateDepart">Date départ</label>
+          <input id="dateDepart" type="date" required aria-required="true"/>
+        </div>
+        <div>
+          <label for="heureDepart">Heure départ</label>
+          <input id="heureDepart" type="time" required aria-required="true"/>
+        </div>
+        <div>
+          <label for="receptionnaireDepart">Réceptionnaire (départ)</label>
+          <input id="receptionnaireDepart" type="text" placeholder="Nom réceptionnaire" required aria-required="true"/>
+        </div>
+      </div>
+
+      <div style="margin-top:calc(10px*var(--scale))">
+        <label for="transAss">Transfert assurance</label>
+        <select id="transAss" required aria-required="true">
+          <option value="">— Sélectionnez —</option>
+          <option value="Oui">Oui</option>
+          <option value="Non">Non</option>
+        </select>
+      </div>
+	  
+	  <div style="margin-top:calc(10px*var(--scale))">
+        <label for="obs">Attention : prévoir un transfert d'assurance pendant le prêt du véhicule. Sinon en cas d'accident un montant de 2500 euros sera à votre charge. Merci de votre compréhension.</label>
+      </div>
+
+      <div style="margin-top:calc(10px*var(--scale))">
+        <label for="obs">Information chauffeur</label>
+        <textarea id="obs" placeholder="Adresse, téléphone ..." required aria-required="true"></textarea>
+      </div>
+
+      <div style="margin-top:calc(12px*var(--scale))">
+        <label>Pièces jointes <span style="color:var(--err)">(obligatoire)</span></label>
+        <div class="attBar">
+          <input id="attInput" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.heic" style="display:none">
+          <button class="btn-sec" id="attBtn" type="button">Ajouter des fichiers</button>
+          <span class="muted">(Permis de conduire)</span>
+        </div>
+        <div id="attList" class="thumbs"></div>
+      </div>
+
+      <div style="margin-top:calc(12px*var(--scale))">
+        <label for="openLoans">Prêts en cours du magasin</label>
+        <select id="openLoans" disabled><option value="">— Sélectionnez d’abord un magasin —</option></select>
+      </div>
+
+      <div class="btns">
+        <button class="btn" id="btnSave" type="button">Enregistrer le prêt</button>
+        <button class="btn-sec" id="btnOpenClose" type="button">Clôturer un prêt</button>
+        <button class="btn-ghost" id="btnReset" type="button">Réinitialiser</button>
+        <span class="tag" id="statusTag">Prêt non enregistré</span>
+      </div>
+
+      <div class="notice" id="notice"></div>
+    </div>
+  </div>
+
+  <div class="modalMask" id="mask">
+    <div class="modal">
+      <h3 style="margin:0 0 calc(8px*var(--scale))">Clôturer le prêt</h3>
+      <p id="mInfo" style="opacity:.85"></p>
+      <div class="row cols-2">
+        <div><label for="mDateRet">Date retour</label><input id="mDateRet" type="date"></div>
+        <div><label for="mHourRet">Heure retour</label><input id="mHourRet" type="time"></div>
+      </div>
+      <div style="margin-top:calc(10px*var(--scale))"><label for="mRecep">Réceptionnaire (retour)</label><input id="mRecep" type="text"></div>
+      <div style="display:flex;gap:calc(10px*var(--scale));justify-content:flex-end;margin-top:calc(14px*var(--scale))">
+        <button class="btn-ghost" id="mCancel" type="button">Annuler</button>
+        <button class="btn" id="mOk" type="button">Valider la clôture</button>
+      </div>
+      <div class="notice" id="mNotice"></div>
+    </div>
+  </div>
+
+  <div class="pdfMask" id="pdfMask" aria-hidden="true">
+    <div class="pdfBox" role="dialog" aria-label="Aperçu">
+      <div class="pdfBar">
+        <div style="font-weight:700">Aperçu d’impression</div>
+        <div class="actions">
+          <button class="btn-sec" id="pdfReprint" type="button" title="Relancer l’impression">Réimprimer</button>
+          <button class="btn-ghost" id="pdfClose" type="button">Fermer</button>
+        </div>
+      </div>
+      <iframe id="pdfFrame" name="pdfFrame" title="Aperçu"></iframe>
+    </div>
+  </div>
+
+  <form id="printForm" method="POST" target="pdfFrame" action="/pret/api/loans/print">
+    <input type="hidden" name="vehicle_id">
+    <input type="hidden" name="immatriculation">
+    <input type="hidden" name="magasin_pret">
+    <input type="hidden" name="chauffeur_nom">
+    <input type="hidden" name="date_depart">
+    <input type="hidden" name="heure_depart">
+    <input type="hidden" name="receptionnaire_depart">
+    <input type="hidden" name="observations">
+    <input type="hidden" name="loan_id">
+  </form>
+
+  <script>
+    const BASE_URL = '/pret/api';
+    const el = id => document.getElementById(id);
+
+    const $store = el('store'), $vehicle = el('vehicle'), $vehInfo = el('vehInfo');
+    const $statusTag = el('statusTag'), $notice = el('notice'), $openLoans = el('openLoans');
+    const $btnSave = el('btnSave'), $btnOpenClose = el('btnOpenClose'), $btnReset = el('btnReset');
+
+    const $mask=el('mask'), $mInfo=el('mInfo'), $mDateRet=el('mDateRet'), $mHourRet=el('mHourRet'), $mRecep=el('mRecep'), $mNotice=el('mNotice');
+
+    const $pdfMask = el('pdfMask'), $pdfFrame = el('pdfFrame'), $pdfClose = el('pdfClose'), $pdfReprint = el('pdfReprint'), $printForm = el('printForm');
+
+    const $attInput = el('attInput'), $attBtn = el('attBtn'), $attList = el('attList');
+
+    let vehiclesAll = []; let vehiclesIndex = {}; let lastSaved=null;
+    let atts = [];
+
+    const p2 = n => String(n).padStart(2,'0');
+    function parseMaybeDate(v){
+      if (!v && v!==0) return null;
+      if (v instanceof Date) return isNaN(v)?null:v;
+      if (typeof v === 'number'){ const ms=Math.round((v-25569)*86400*1000); const d=new Date(ms); return isNaN(d)?null:d; }
+      if (typeof v === 'string'){
+        let m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return new Date(+m[1],+m[2]-1,+m[3]);
+        m = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+        if (m){ const yy=+m[3]; const full=yy<100?2000+yy:yy; return new Date(full,+m[2]-1,+m[1]); }
+        const d = new Date(v); return isNaN(d)?null:d;
+      }
+      return null;
+    }
+    const fmtFRShort = v => {
+      const d = parseMaybeDate(v);
+      return d ? `${p2(d.getDate())}/${p2(d.getMonth()+1)}/${String(d.getFullYear()).slice(-2)}` : '—';
+    };
+
+    async function fetchJSON(url, opts){ const r=await fetch(url,opts); if(!r.ok){throw new Error('HTTP '+r.status)} return r.json(); }
+    const setStatus=(t)=>{ $statusTag.textContent=t; $statusTag.style.opacity=1; };
+    const setNotice=(t,type='info',asHTML=false)=>{ if(asHTML) $notice.innerHTML=t||''; else $notice.textContent=t||''; $notice.style.color=type==='error'?'#c62828':type==='success'?'#2e7d32':'#073763'; };
+    const setModalNotice=(t,type='info')=>{ $mNotice.textContent=t||''; $mNotice.style.color=type==='error'?'#c62828':type==='success'?'#2e7d32':'#073763'; };
+
+    const REQUIRED_IDS = ['store','vehicle','chauffeur','dateDepart','heureDepart','receptionnaireDepart','transAss','obs'];
+    const LABELS = {
+      store:'Magasin',
+      vehicle:'Véhicule',
+      chauffeur:'Nom du chauffeur',
+      dateDepart:'Date départ',
+      heureDepart:'Heure départ',
+      receptionnaireDepart:'Réceptionnaire (départ)',
+      transAss:'Transfert assurance',
+      obs:'Information chauffeur'
+    };
+    function clearInvalid(){
+      REQUIRED_IDS.forEach(id=>{
+        const f=el(id); if(!f) return;
+        f.classList.remove('invalid'); f.removeAttribute('aria-invalid');
+      });
+      $attList.classList.remove('invalid');
+    }
+    function validateRequired(){
+      clearInvalid();
+      const missing = [];
+      for(const id of REQUIRED_IDS){
+        const f = el(id);
+        const val = (f?.value ?? '').trim();
+        if(!val){
+          missing.push(LABELS[id] || id);
+          f?.classList.add('invalid');
+          f?.setAttribute('aria-invalid','true');
+        }
+      }
+      if(atts.length === 0){
+        missing.push('Pièces jointes');
+        $attList.classList.add('invalid');
+      }
+      if(missing.length){
+        setStatus('Champs manquants');
+        setNotice('Complétez : '+missing.join(', ')+'.','error');
+        const firstId = REQUIRED_IDS.find(id => el(id)?.classList.contains('invalid'));
+        if(firstId) { el(firstId).focus(); }
+        else { $attBtn.focus(); }
+        return false;
+      }
+      return true;
+    }
+    REQUIRED_IDS.forEach(id=>{
+      const f = el(id);
+      f?.addEventListener('input', ()=>{
+        if((f.value||'').trim()){
+          f.classList.remove('invalid');
+          f.removeAttribute('aria-invalid');
+        }
+      });
+      f?.addEventListener('change', ()=>{
+        if((f.value||'').trim()){
+          f.classList.remove('invalid');
+          f.removeAttribute('aria-invalid');
+        }
+      });
+    });
+
+    async function resetAll(){
+      document.querySelectorAll('input, textarea, select').forEach(i=>{
+        if(i.id==='attInput') return;
+        if(i.type!=='select-one') i.value='';
+        else i.selectedIndex=0;
+        i.classList?.remove('invalid'); i.removeAttribute?.('aria-invalid');
+      });
+      setStatus('Prêt non enregistré'); setNotice(''); $vehInfo.textContent=''; lastSaved=null;
+      atts.forEach(a=>a.url && URL.revokeObjectURL(a.url)); atts=[]; renderAtts();
+      await renderVehicleOptions(null);
+      await loadOpenLoansForStore(null);
+      $attList.classList.remove('invalid');
+    }
+
+    $attBtn.addEventListener('click', ()=> $attInput.click());
+    $attInput.addEventListener('change', ()=>{
+      [...$attInput.files].forEach(addAtt);
+      $attInput.value='';
+    });
+    function addAtt(file){
+      if(!file) return;
+      const isImg = /^image\//.test(file.type);
+      const o = { file, isImg, url: isImg ? URL.createObjectURL(file) : '', name:file.name, type:file.type||'application/octet-stream' };
+      atts.push(o);
+      renderAtts();
+      $attList.classList.remove('invalid');
+    }
+    function removeAtt(idx){
+      const o = atts.splice(idx,1)[0];
+      if(o?.url) URL.revokeObjectURL(o.url);
+      renderAtts();
+    }
+    function renderAtts(){
+      $attList.innerHTML='';
+      atts.forEach((o,idx)=>{
+        const box=document.createElement('div'); box.className='thumb';
+        const x=document.createElement('button'); x.className='x'; x.type='button'; x.textContent='✕'; x.onclick=()=>removeAtt(idx); box.appendChild(x);
+        if(o.isImg){ const img=new Image(); img.src=o.url; img.alt=o.name; box.appendChild(img); }
+        else{ const s=document.createElement('span'); s.className='file'; s.textContent=(o.name.split('.').pop()||'Fichier').toUpperCase(); box.appendChild(s); }
+        const cap=document.createElement('div'); cap.className='cap'; cap.textContent=o.name; box.appendChild(cap);
+        $attList.appendChild(box);
+      });
+    }
+    async function attsToPayload(){
+      const toB64 = (o)=>new Promise((resolve,reject)=>{
+        const fr=new FileReader();
+        fr.onload=()=>{ const m=String(fr.result).match(/^data:(.+?);base64,(.*)$/); resolve({ filename:o.name, contentType:o.type, content:(m?m[2]:'') }); };
+        fr.onerror=reject;
+        fr.readAsDataURL(o.file);
+      });
+      return Promise.all(atts.map(toB64));
+    }
+
+    async function loadStores(){
+      try{
+        const response=await fetchJSON(`${BASE_URL}/stores`);
+        const data = response.stores || response;
+        $store.innerHTML='<option value="">— Sélectionnez d\'abord un magasin —</option>'+data.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+      }catch(e){ setNotice('Impossible de charger les magasins','error'); console.error(e); }
+    }
+    async function loadVehicles(){
+      try{ 
+        const response=await fetchJSON(`${BASE_URL}/vehicles`);
+        vehiclesAll = response.vehicles || response;
+        await renderVehicleOptions(null);
+      }
+      catch(e){ setNotice('Impossible de charger les véhicules','error'); console.error(e); }
+    }
+    async function renderVehicleOptions(storeCode){
+      vehiclesIndex = {};
+      if(!storeCode){ $vehicle.innerHTML='<option value="">-- Choisissez un magasin d’abord --</option>'; $vehInfo.textContent=''; return; }
+      // Charger les prêts en cours
+      let ongoingLoans = [];
+      try {
+        const allLoans = await fetchJSON(`${BASE_URL}/loans/search`);
+        ongoingLoans = allLoans.filter(loan => loan.status && loan.status.toLowerCase() === 'en cours');
+      } catch(e) { console.error('Erreur prêts en cours:', e); }
+      const vehiclesInUse = new Set(ongoingLoans.map(loan => loan.vehicle_id));
+      
+      const list = vehiclesAll.filter(v => (v.magasin_home || '') === storeCode);
+      if(!list.length){ $vehicle.innerHTML='<option value="">(Aucun véhicule rattaché)</option>'; return; }
+      $vehicle.innerHTML = ['<option value="">-- Sélectionnez un véhicule --</option>'].concat(
+        list.map(v=>{
+          vehiclesIndex[v.vehicle_id]=v;
+          const label=`${v.immatriculation} — ${v.marque||''} ${v.modele||''}`.trim();
+          const absent=String(v.statut||'').toLowerCase()==='absent';
+          const inUse = vehiclesInUse.has(v.vehicle_id);
+          const disabled = absent || inUse;
+          let suffix = '';
+          if (absent) suffix = ' (Absent)';
+          else if (inUse) suffix = ' (En prêt)';
+          return `<option value="${v.vehicle_id}" ${disabled?'disabled':''}>${label}${suffix}</option>`;
+        })
+      ).join('');
+      $vehInfo.textContent='';
+    }
+    async function loadOpenLoansForStore(storeCode){
+      if(!storeCode){ $openLoans.disabled=true; $openLoans.innerHTML='<option value="">— Sélectionnez d’abord un magasin —</option>'; return; }
+      try{
+        $openLoans.disabled=true; $openLoans.innerHTML='<option>Chargement…</option>';
+        const rows = await fetchJSON(`${BASE_URL}/loans/search`);
+        const open = rows.filter(r => String(r.status).toLowerCase()==='en cours' && String(r.magasin_pret||'')===storeCode)
+                         .sort((a,b)=> (Date.parse(b.created_at||'')-Date.parse(a.created_at||'')));
+        if(!open.length){ $openLoans.disabled=true; $openLoans.innerHTML='<option>(Aucun prêt en cours)</option>'; return; }
+        $openLoans.disabled=false;
+        $openLoans.innerHTML=['<option value="">— Sélectionnez un prêt —</option>'].concat(
+          open.map(r=>`<option value="${r.loan_id}" data-veh="${r.vehicle_id||''}" data-immat="${r.immatriculation||''}">${r.immatriculation||'—'} — ${r.chauffeur_nom||'—'}</option>`)
+        ).join('');
+      }catch(e){ $openLoans.disabled=true; $openLoans.innerHTML='<option>Erreur de chargement</option>'; }
+    }
+
+    function currentPayload(){
+      const v = vehiclesIndex[$vehicle.value] || {};
+      return {
+        vehicle_id:$vehicle.value,
+        immatriculation:v.immatriculation||'',
+        magasin_pret:$store.value,
+        chauffeur_nom:el('chauffeur').value.trim(),
+        date_depart:el('dateDepart').value,
+        heure_depart:el('heureDepart').value,
+        receptionnaire_depart:el('receptionnaireDepart').value.trim(),
+        observations:el('obs').value.trim(),
+        transfert_assurance: el('transAss').value || '',
+        loan_id: (lastSaved && lastSaved.loan_id) || ''
+      };
+    }
+
+    $store.addEventListener('change', async ()=>{
+      const code=$store.value||null;
+      renderVehicleOptions(code);
+      await loadOpenLoansForStore(code);
+    });
+
+    $vehicle.addEventListener('change', ()=>{
+      const v = vehiclesIndex[$vehicle.value];
+      if (!v) { $vehInfo.textContent = ''; return; }
+      const base = `Magasin d'attache: ${v.magasin_home || '—'} • Statut: ${v.statut || '—'}`;
+      const ctRaw  = (v['CT'] ?? v.ct) || '';
+      const polRaw = (v['Pollution'] ?? v.pollution) || '';
+      $vehInfo.innerHTML = `${base}<br>CT: ${fmtFRShort(ctRaw)} • Pollution: ${fmtFRShort(polRaw)}`;
+    });
+
+    el('btnOpenClose').addEventListener('click', ()=>{
+      const opt = $openLoans.options[$openLoans.selectedIndex];
+      if(!$store.value){ setNotice('Choisissez un magasin.','error'); return; }
+      if(!$openLoans.value || !opt){ setNotice('Sélectionnez un prêt en cours.','error'); return; }
+      const immat = (opt?.dataset?.immat) || (vehiclesIndex[opt?.dataset?.veh || '']?.immatriculation) || ((opt?.textContent || '').split('—')[0].trim());
+      const storeLabel = $store.options[$store.selectedIndex]?.text || $store.value || '';
+      $mInfo.textContent = `Véhicule : ${immat || '—'} • Magasin : ${storeLabel}`;
+      const now=new Date(), pad=n=>String(n).padStart(2,'0');
+      $mDateRet.value=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      $mHourRet.value=`${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      $mRecep.value=''; $mask.style.display='flex';
+    });
+    el('mCancel').addEventListener('click', ()=> $mask.style.display='none');
+    el('mOk').addEventListener('click', async ()=>{
+      const opt = $openLoans.options[$openLoans.selectedIndex]; if(!$openLoans.value || !opt) return;
+      try{
+        setModalNotice('Clôture en cours...');
+        const payload = { vehicle_id: opt.dataset.veh||'', date_retour:$mDateRet.value, heure_retour:$mHourRet.value, receptionnaire_retour:$mRecep.value.trim() };
+        const r = await fetch(`${BASE_URL}/loans/${encodeURIComponent($openLoans.value)}/close`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        const j = await r.json(); if(!j.ok) throw new Error(j.error||'Erreur API');
+        setModalNotice('OK','success'); $mask.style.display='none'; setNotice('Prêt clôturé.','success');
+        await loadVehicles(); renderVehicleOptions($store.value||null); await loadOpenLoansForStore($store.value||null);
+        location.reload();
+      }catch(e){ setModalNotice('Échec : '+e.message,'error'); }
+    });
+
+    function openPrintPreview(d){
+      Object.entries(d).forEach(([k,v])=>{
+        const inp=$printForm.querySelector(`[name="${k}"]`); if(inp) inp.value = v==null?'':String(v);
+      });
+      $pdfFrame.src='about:blank';
+      $pdfMask.style.display='flex';
+      $pdfMask.setAttribute('aria-hidden','false');
+      $printForm.submit();
+    }
+    $pdfClose.addEventListener('click', ()=>{
+      $pdfMask.style.display='none';
+      $pdfMask.setAttribute('aria-hidden','true');
+      $pdfFrame.src='about:blank';
+      location.reload();
+    });
+
+    $pdfReprint.addEventListener('click', ()=>{ try{ $pdfFrame.contentWindow?.focus(); $pdfFrame.contentWindow?.print(); }catch(_){ } });
+
+    el('btnSave').addEventListener('click', async ()=>{
+      if(!validateRequired()) return;
+
+      const d=currentPayload();
+      try{
+        $btnSave.disabled = true; $btnSave.setAttribute('aria-busy','true');
+        setStatus('Enregistrement en cours…'); setNotice('⏳ <span class="muted">Enregistrement en cours…</span>', 'info', true);
+
+        const r=await fetch(`${BASE_URL}/loans`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+        const j=await r.json(); if(!j.ok) throw new Error(j.error||'Erreur API');
+
+        lastSaved={...d,loan_id:j.loan_id||null};
+        setStatus('Prêt enregistré'); setNotice('Prêt enregistré. Impression en cours…','success');
+
+        openPrintPreview(lastSaved);
+
+        let emailOK = true;
+        try{
+          const attPayload = await attsToPayload();
+          const mr = await fetch(`${BASE_URL}/loans/email`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ loan:lastSaved, attachments:attPayload })
+          });
+          const jm = await mr.json();
+          emailOK = !!jm.ok;
+          if(!emailOK) throw new Error(jm.error||'mail_send_failed');
+        }catch(e){
+          emailOK = false;
+          setNotice('Prêt enregistré, mais e-mail non envoyé. '+(e?.message||''), 'error');
+        }
+
+        if(emailOK){
+          await resetAll();
+          setNotice('Fiche ouverte pour impression. Le formulaire a été réinitialisé.', 'success');
+        }
+      }catch(e){
+        setStatus('Erreur'); setNotice('Échec : '+e.message,'error');
+      }finally{
+        $btnSave.disabled=false; $btnSave.removeAttribute('aria-busy');
+      }
+    });
+
+    el('btnReset').addEventListener('click', async ()=>{ await resetAll(); });
+
+    (async ()=>{ await Promise.all([loadStores(), loadVehicles()]); })();
+  </script>
+</body>
+</html>

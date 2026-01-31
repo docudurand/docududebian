@@ -1,0 +1,1352 @@
+<!doctype html>
+<!--interface Presences (saisie, resume, admin conges)-->
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Présences DSG</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{ --brand:#d21f3c; --bg:#f6f7f8; --text:#111; --muted:#666; --line:#e5e7eb; --ok:#1a7f37; --tabsH:48px; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:Montserrat,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:#f6f7f8}
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+input[type="date"],
+input[type="month"],
+select,
+textarea {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font: inherit;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  height: 40px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+}
+#tab-resume .section-title { margin-top: 22px; margin-bottom: 8px; }
+#tab-resume .section-title:first-child { margin-top: 6px; }
+#tab-resume .section-sub { margin-top: 24px; margin-bottom: 8px; font-weight: 800; color: var(--brand); }
+textarea { min-height: 90px; resize: vertical; }
+
+input:focus, select:focus, textarea:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+}
+
+input::placeholder, textarea::placeholder { color: #94a3b8; opacity: 1; }
+
+select {
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg fill='none' stroke='%23566' stroke-width='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+}
+
+button.primary {
+  background: var(--brand);
+  color: #fff;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  box-shadow: 0 2px 0 rgba(0,0,0,.04);
+}
+button.primary:hover { filter: brightness(1.02); }
+button.primary:active { transform: translateY(1px); }
+
+input[type="checkbox"] {
+  width: 18px; height: 18px;
+  vertical-align: middle;
+  accent-color: var(--brand);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: .7;
+  filter: saturate(.9);
+}
+
+.input--sm { height: 34px; padding: 6px 10px; border-radius: 10px; }
+.app-header{display:flex;align-items:baseline;gap:1rem;padding:12px 16px;background:#fff;border-bottom:1px solid var(--line)}
+.app-header h1{margin:0;font-weight:800;letter-spacing:.5px}
+.app-header .today{color:var(--muted)}
+.tabs{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:5}
+.tab{appearance:none;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:700}
+.tab.active{border-color:var(--brand);color:#fff;background:var(--brand)}
+.tab-panel{display:none;padding:16px}
+.tab-panel.active{display:block}
+
+.grid-buttons{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.grid-buttons button{padding:14px 12px;font-weight:700;border-radius:14px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.grid-buttons button.active{border-color:var(--brand);outline:3px solid color-mix(in srgb,var(--brand),transparent 70%)}
+
+.toolbar{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:12px;flex-wrap:wrap}
+.toolbar .row-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.saisie-stick{position:sticky;top:var(--tabsH);z-index:4;display:grid;gap:8px}
+.codes-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.psite-strip{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+.psite-strip .badge{ flex:0 0 auto; }
+.psite-strip::-webkit-scrollbar{ height:6px; }
+.psite-strip::-webkit-scrollbar-thumb{ background:#ddd; border-radius:999px; }
+
+.resume-stick{position:sticky;top:var(--tabsH);z-index:4;display:grid;gap:8px}
+
+.legend-bar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;
+}
+.chip{
+  display:inline-block;border:1px solid var(--line);background:#fff;border-radius:8px;
+  padding:6px 10px;font-weight:700;font-size:1rem;line-height:1;user-select:none;
+}
+
+.chip.code[data-code="P"]  {background:#e8f5ec;color:#1a7f37;border-color:#d9f0e1}
+.chip.code[data-code="CP"] {background:#efe6ff;color:#6b21a8;border-color:#e7ddff}
+.chip.code[data-code="AM"] {background:#fee2e2;color:#b91c1c}
+.chip.code[data-code="UST"]{background:#fef3c7;color:#92400e}
+.chip.code[data-code="AT"] {background:#dcfce7;color:#15803d}
+.chip.code[data-code="F"]  {background:#ccfbf1;color:#0f766e}
+.chip.code[data-code="Cep"]{background:#ffedd5;color:#b45309}
+.chip.code[data-code="Ann"]{background:#fce7f3;color:#be185d}
+.chip.code[data-code="SS"] {background:#ffe4e6;color:#be123c}
+.chip.code[data-code="E"]  {background:#ecfccb;color:#65a30d}
+.chip.code[data-code="R"]  {background:#dcfce7;color:#15803d}
+.chip.code[data-code="D"]  {background:#dbeafe;color:#1d4ed8}
+.chip.code[data-code="RI"] {background:#fef9c3;color:#a16207}
+.chip.code[data-code="NP"] {background:#000;color:#fff;border-color:#000}
+
+.chip.code[data-code^="P"]:not([data-code="P"]){background:#f5d0aa;color:#6b3e00}
+.legend-psite-strip{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+.legend-psite-strip::-webkit-scrollbar{ height:6px; }
+.legend-psite-strip::-webkit-scrollbar-thumb{ background:#ddd; border-radius:999px; }
+
+button.primary{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+button.badge{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700;cursor:pointer}
+button.badge.code{border-radius:8px}
+
+.table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);margin:18px 0;border-radius:12px;overflow:hidden}
+.table th,.table td{border:1px solid var(--line);padding:8px;text-align:center}
+.table thead th{background:#fafafa;font-weight:800}
+.row-label{white-space:nowrap;text-align:left;font-weight:600}
+.sub-label{font-size:.86rem;color:#666;font-style:italic;white-space:nowrap}
+.section-title{margin-top:6px;margin-bottom:6px;font-weight:800;text-transform:uppercase;color:var(--brand)}
+.cell{min-width:32px;height:30px;cursor:pointer;user-select:none;position:relative;background:#fff}
+.cell.selected{outline:3px solid #2563eb44}
+.cell.weekend{background:#000;color:#fff}
+
+.cell.P{background:#e8f5ec;color:#1a7f37;font-weight:700}
+.cell.CP{background:#efe6ff;color:#6b21a8;font-weight:700}
+.cell.AM{background:#fee2e2;color:#b91c1c;font-weight:700}
+.cell.UST{background:#fef3c7;color:#92400e;font-weight:700}
+.cell.AT{background:#dcfce7;color:#15803d;font-weight:700}
+.cell.F{background:#ccfbf1;color:#0f766e;font-weight:700}
+.cell.Cep{background:#ffedd5;color:#b45309;font-weight:700}
+.cell.Ann{background:#fce7f3;color:#be185d;font-weight:700}
+.cell.SS{background:#ffe4e6;color:#be123c;font-weight:700}
+.cell.E{background:#ecfccb;color:#65a30d;font-weight:700}
+.cell.R{background:#dcfce7;color:#15803d;font-weight:700}
+.cell.D{background:#dbeafe;color:#1d4ed8;font-weight:700}
+.cell.RI{background:#fef9c3;color:#a16207;font-weight:700}
+.cell.PSITE{background:#f5d0aa;color:#6b3e00;font-weight:700}
+.cell.FERIE { background:#e5e7eb !important; color:#111 !important; font-weight:800; }
+
+.badge.code[data-code="P"]  {background:#e8f5ec;color:#1a7f37;border-color:#d9f0e1}
+.badge.code[data-code="CP"] {background:#efe6ff;color:#6b21a8;border-color:#e7ddff}
+.badge.code[data-code="AM"] {background:#fee2e2;color:#b91c1c}
+.badge.code[data-code="UST"]{background:#fef3c7;color:#92400e}
+.badge.code[data-code="AT"] {background:#dcfce7;color:#15803d}
+.badge.code[data-code="F"]  {background:#ccfbf1;color:#0f766e}
+.badge.code[data-code="Cep"]{background:#ffedd5;color:#b45309}
+.badge.code[data-code="Ann"]{background:#fce7f3;color:#be185d}
+.badge.code[data-code="SS"] {background:#ffe4e6;color:#be123c}
+.badge.code[data-code="E"]  {background:#ecfccb;color:#65a30d}
+.badge.code[data-code="R"]  {background:#dcfce7;color:#15803d}
+.badge.code[data-code="D"]  {background:#dbeafe;color:#1d4ed8}
+.badge.code[data-code="RI"] {background:#fef9c3;color:#a16207}
+.badge.code[data-code^="P"]:not([data-code="P"]){background:#f5d0aa;color:#6b3e00}
+
+#tab-resume .legend-bar { 
+  gap: 6px; 
+  padding: 6px 8px; 
+}
+
+#tab-resume .legend-bar .chip{
+  padding: 4px 8px;
+  font-size: .90rem;
+  font-weight: 700;
+  border-radius: 8px;
+}
+
+@media (max-width: 900px){
+  #tab-resume .legend-bar .chip{
+    font-size: .85rem;
+    padding: 3px 7px;
+  }
+}
+
+.hint,.legend{color:#666;font-size:.9rem}
+.error{color:#a40000;font-weight:700}
+.loading{padding:14px;color:#666}
+@media (max-width:900px){ .cell{min-width:26px;height:28px} }
+
+.badge.action.btn-accept{ background:#e8f5ec; color:#1a7f37; border-color:#d9f0e1; }
+.badge.action.btn-reject{ background:#fee2e2; color:#b91c1c; }
+.badge.action.btn-cancel{ background:#fff7ed; color:#b45309; }
+.inline-loading{ display:flex; align-items:center; gap:8px; color:#666; font-weight:600; }
+.spinner{ width:14px; height:14px; border-radius:50%; border:2px solid #ddd; border-top-color: var(--brand); animation:spin 1s linear infinite; }
+@keyframes spin{ to{ transform: rotate(360deg) } }
+
+.admin-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.admin-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.admin-row>*{flex:1 1 180px}
+
+.cell.LL { background:#e5e7eb !important; color:#111 !important; font-weight:700; }
+.badge.code[data-code="LL"] { background:#e5e7eb; color:#111; border-color:#e5e7eb; }
+</style>
+</head>
+<body>
+<!-- En-tete + navigation par onglets -->
+<header class="app-header">
+  <h1>Présences Durand Services</h1>
+  <div class="today">Aujourd’hui : <span id="today"></span></div>
+</header>
+
+<main>
+  <nav class="tabs">
+    <button class="tab active" data-tab="magasins">Magasins</button>
+    <button class="tab" data-tab="saisie">Saisie du jour</button>
+    <button class="tab" data-tab="resume">Résumé du mois</button>
+    <button class="tab" data-tab="leaves">Admin</button>
+  </nav>
+
+  <!-- Onglet: choix du magasin -->
+  <section id="tab-magasins" class="tab-panel active">
+    <p class="hint">Choisissez un magasin :</p>
+    <div id="magasin-buttons" class="grid-buttons"></div>
+    <div id="magasin-loading" class="loading" style="display:none">Chargement du personnel…</div>
+  </section>
+
+  <!-- Onglet: saisie du jour -->
+  <section id="tab-saisie" class="tab-panel">
+    <div class="saisie-stick">
+      <div class="toolbar">
+        <div class="row-top" style="width:100%">
+          <div><b>Magasin :</b> <span id="current-magasin">—</span></div>
+          <div><b>Date :</b> <input id="saisie-date" type="date"/></div>
+          <button id="btn-save" class="primary">Enregistrer</button>
+          <button id="btn-fill-all" class="badge">Tout mettre P</button>
+          <span id="save-busy" class="inline-loading" style="display:none"><span class="spinner"></span><span>Enregistrement…</span></span>
+        </div>
+      </div>
+
+      <div id="codes-bar" class="codes-bar" aria-label="Codes de saisie"></div>
+    </div>
+
+    <div id="saisie-content"></div>
+    <div class="legend"></div>
+    <p id="saisie-error" class="error" style="display:none"></p>
+  </section>
+
+  <!-- Onglet: resume mensuel -->
+  <section id="tab-resume" class="tab-panel">
+    <div class="resume-stick">
+      <div class="toolbar">
+        <div><b>Mois :</b> <input id="resume-month" type="month"/></div>
+        <div><b>Magasin :</b> <select id="resume-store"></select></div>
+        <button id="btn-load-store" class="primary">Charger</button>
+      </div>
+      <div id="resume-legend" class="legend-bar" aria-label="Légende des codes"></div>
+    </div>
+    <div id="resume-content"></div>
+    <p id="resume-error" class="error" style="display:none"></p>
+  </section>
+
+  <!-- Onglet: admin conges -->
+  <section id="tab-leaves" class="tab-panel">
+    <div class="toolbar">
+      <form id="leaves-login-form" autocomplete="on" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input id="leaves-user" name="username" type="text" value="admin" autocomplete="username" style="display:none">
+        <input id="leaves-pass" name="password" type="password" class="input-nice" placeholder="Mot de passe admin" autocomplete="current-password"/>
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="remember-pw"> Mémoriser</label>
+        <button type="submit" id="btn-login" class="primary">Se connecter</button>
+      </form>
+    </div>
+
+    <div id="admin-range" class="admin-box" style="display:none">
+      <div style="font-weight:800;margin-bottom:8px">Ajout par période</div>
+      <div class="admin-row">
+        <select id="ar-magasin"></select>
+        <select id="ar-personnel"><option value="">— Personnel —</option></select>
+        <select id="ar-code"></select>
+        <input id="ar-du" type="date" />
+        <input id="ar-au" type="date" />
+        <button id="ar-add" class="primary">Ajouter</button>
+      </div>
+      <div id="ar-msg" class="hint" style="margin-top:6px"></div>
+    </div>
+    <div id="admin-export" class="admin-box" style="display:none">
+      <div style="font-weight:800;margin-bottom:8px">Export mensuel (Excel)</div>
+      <div class="admin-row">
+        <input id="ex-month" type="month" />
+        <button id="ex-run" class="primary">Exporter le mois</button>
+        <span id="ex-busy" class="inline-loading" style="display:none">
+          <span class="spinner"></span><span>Génération du fichier…</span>
+        </span>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        
+      </div>
+    </div>
+
+
+    <div id="leaves-content"></div>
+    <p id="leaves-error" class="error" style="display:none"></p>
+  </section>
+</main>
+
+<script>
+// JS principal: saisie presences, gestion conges, export
+const pad=n=>n<10?`0${n}`:`${n}`;
+const todayISO=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+const thisYM = ()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}`;}
+const ymd = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const daysOfMonth = ym=>{ const [y,m]=ym.split('-').map(Number); const out=[]; for(let i=1;i<=new Date(y,m,0).getDate();i++) out.push(new Date(y,m-1,i)); return out; };
+const dowLetter = d=>["D","L","M","M","J","V","S"][d.getDay()];
+const norm = s => String(s||"").trim().replace(/\\s+/g," ").toUpperCase();
+function union(...arrs){ return [...new Set(arrs.flat().filter(Boolean))]; }
+
+const FERIES = new Set([
+  "2025-01-01","2025-04-21","2025-05-01","2025-05-08","2025-05-29","2025-06-09",
+  "2025-07-14","2025-08-15","2025-11-01","2025-11-11","2025-12-25",
+]);
+const isHoliday = iso => FERIES.has(String(iso));
+
+const apiBase = '/presence';
+const MAGASINS = ["ANNEMASSE","BOURGOIN","CHASSE SUR RHONE","CHASSIEU","GLEIZE","LA MOTTE SERVOLEX","MIRIBEL","PAVI","RENAGE","RIVES","SAINT-MARTIN-D'HERES","SEYNOD","ST EGREVE","ST-JEAN-BONNEFONDS"];
+
+const MAIN_CODES = ['P','CP','AM','AT','F','Cep','Ann','SS','E','R','D','RI','UST','NP'];
+const PSITE_CODES = Array.from({length:22}, (_,i)=>`P${i+1}`);
+const CODE_DEFS = [
+  {code:'P', label:'Présent'},{code:'CP',label:'Congé payé'},{code:'AM',label:'Arrêt maladie'},
+  {code:'AT',label:'Accident travail'},{code:'F',label:'Formation'},{code:'Cep',label:'Congé exceptionnel'},
+  {code:'Ann',label:'Absence non motivée'},{code:'SS',label:'Sans solde'},{code:'E',label:'École'},
+  {code:'R', label:'Récup'},{code:'D', label:'Déplacement'},{code:'RI',label:'Récup inventaire'},
+  {code:'UST',label:'Un seul tour'},{code:'NP',label:'Non planifié'},
+  ...PSITE_CODES.map(c=>({code:c,label:'Présence autre site'})),
+];
+const ALL_CODES = CODE_DEFS.map(d=>d.code);
+let LAST_DAY_SNAPSHOT = { byKey: new Map(), date: null };
+function keyFromLabel(label){ return String(label||'').trim().replace(/\\s+/g,' ').toUpperCase(); }
+function takeSnapshotFromData(day){
+  try{
+    const map = new Map();
+    (day?.rows||[]).forEach(r=>{
+      const k = keyFromLabel(r.label||'');
+      const vals = Object.assign({}, r.values||{});
+      Object.keys(vals).forEach(s=> vals[s] = String(vals[s]||'').trim().toUpperCase());
+      if(k) map.set(k, vals);
+    });
+    LAST_DAY_SNAPSHOT = { byKey: map, date: $dateInput?.value || null };
+  }catch(e){}
+}
+function computeCpDeltaAgainstSnapshotFromDOM(){
+  const out=[];
+  document.querySelectorAll('#saisie-content tbody tr').forEach(tr=>{
+    if ((tr.dataset.type||'') !== 'EMP') return;
+
+    const label = tr.querySelector('.row-label')?.textContent || '';
+    const key = keyFromLabel(label);
+    const before = LAST_DAY_SNAPSHOT.byKey.get(key) || {};
+
+    const now={};
+    tr.querySelectorAll('td.cell').forEach(td=>{
+      now[td.dataset.slot||''] = (td.textContent||'').trim().toUpperCase();
+    });
+
+    let delta = 0;
+    Object.keys(Object.assign({}, before, now)).forEach(slot=>{
+      const b = before[slot]||''; const a = now[slot]||'';
+      if (b!=='CP' && a==='CP') delta -= 0.5;
+      else if (b==='CP' && a!=='CP') delta += 0.5;
+    });
+    if (delta){
+      const nom = (tr.dataset.nom||'').trim();
+      const prenom = (tr.dataset.prenom||'').trim();
+      if (nom){ 
+        out.push({
+          fullName: label.trim(),
+          nom,
+          prenom,
+          delta: Number(delta.toFixed(2))
+        });
+      }
+    }
+  });
+  return out;
+}
+async function postAdjustConges(payload){
+  try{ return await fetchJSON('/adjust-conges', { method:'POST', body: JSON.stringify(payload) }); }
+  catch(e){ console.warn('[adjust-conges] erreur', e?.message||e); return null; }
+}
+
+
+const $today=document.getElementById('today');
+const $tabs=[...document.querySelectorAll('.tab')];
+const $panels={ magasins:document.getElementById('tab-magasins'), saisie:document.getElementById('tab-saisie'), resume:document.getElementById('tab-resume'), leaves:document.getElementById('tab-leaves') };
+const $magBtnsWrap=document.getElementById('magasin-buttons');
+const $magLoading=document.getElementById('magasin-loading');
+const $currMag=document.getElementById('current-magasin');
+const $dateInput=document.getElementById('saisie-date');
+const $saisieContent=document.getElementById('saisie-content');
+const $btnSave=document.getElementById('btn-save');
+const $btnFillAll=document.getElementById('btn-fill-all');
+const $resumeMonth=document.getElementById('resume-month');
+const $resumeStore=document.getElementById('resume-store');
+const $btnLoadStore=document.getElementById('btn-load-store');
+const $resumeContent=document.getElementById('resume-content');
+const $resumeError=document.getElementById('resume-error');
+const $loginForm=document.getElementById('leaves-login-form');
+const $leavesPass=document.getElementById('leaves-pass');
+const $rememberPw=document.getElementById('remember-pw');
+const $leavesContent=document.getElementById('leaves-content');
+const $leavesError=document.getElementById('leaves-error');
+const $codesBar=document.getElementById('codes-bar');
+const $resumeLegend=document.getElementById('resume-legend');
+
+const $arBox=document.getElementById('admin-range');
+const $arMag=document.getElementById('ar-magasin');
+const $arPers=document.getElementById('ar-personnel');
+const $arCode=document.getElementById('ar-code');
+const $arDu=document.getElementById('ar-du');
+const $arAu=document.getElementById('ar-au');
+const $arAdd=document.getElementById('ar-add');
+const $arMsg=document.getElementById('ar-msg');
+
+const $exBox=document.getElementById('admin-export');
+const $exMonth=document.getElementById('ex-month');
+const $exRun=document.getElementById('ex-run');
+const $exBusy=document.getElementById('ex-busy');
+
+$today.textContent=todayISO();
+
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function fetchJSON(path, opts={}, retries=1){
+  const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 15000);
+  try{
+    const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+    const token = sessionStorage.getItem('leavesToken');
+    if(path.startsWith('/leaves') || path.startsWith('/range-mark')){ if(token) headers['X-Admin-Token'] = token; }
+    const r = await fetch(apiBase+path, { ...opts, headers, signal: ctrl.signal });
+    if(!r.ok){
+      const txt = await r.text().catch(()=> '');
+      if (r.status === 401 && (path.startsWith('/leaves') || path.startsWith('/range-mark'))) throw new Error('401');
+      throw new Error(txt || ('HTTP '+r.status));
+    }
+    return await r.json();
+  }catch(e){
+    if(retries>0){ await delay(300); return fetchJSON(path, opts, retries-1); }
+    throw e;
+  }finally{ clearTimeout(t); }
+}
+
+$tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+function switchTab(key){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===key));
+  Object.entries($panels).forEach(([k,el])=>el.classList.toggle('active',k===key));
+  if(key==="leaves"){
+    const token = sessionStorage.getItem('leavesToken');
+    if(!token){
+      $leavesError.textContent = "Veuillez vous connecter avec le mot de passe admin pour afficher et agir.";
+      $leavesError.style.display='block';
+      $leavesContent.innerHTML = "";
+      $arBox.style.display='none'; if($exBox) $exBox.style.display='none';
+      return;
+    }
+    $leavesError.style.display='none';
+    $arBox.style.display='block'; if($exBox) $exBox.style.display='block'; if($exMonth && !$exMonth.value){ $exMonth.value=thisYM(); }
+    if(currentMagasin) $arMag.value = currentMagasin;
+    loadAdminPersonnel();
+    loadLeaves();
+  }
+  if(key==="resume"){ buildResumeLegend(); }
+}
+
+let currentMagasin=null, personnel=null, selectedCells=new Set();
+let HIST_ROWS_SAISIE = [];
+
+function clearSelection(){ selectedCells.forEach(c=>c.classList.remove('selected')); selectedCells.clear(); }
+function handleCellClick(ev,td){
+  const isShift=ev.shiftKey, isCtrl=ev.ctrlKey||ev.metaKey;
+  if(isShift && selectedCells.size){
+    const last=[...selectedCells][selectedCells.size-1];
+    const rect=(a,b)=>{const ar=a.closest('tr').rowIndex, ac=a.cellIndex; const br=b.closest('tr').rowIndex, bc=b.cellIndex;
+      const table=a.closest('table');
+      const r1=Math.min(ar,br), r2=Math.max(ar,br); const c1=Math.min(ac,bc), c2=Math.max(ac,bc);
+      for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++){ const cell=table.rows[r].cells[c];
+        if(cell && cell.classList.contains('cell')){ cell.classList.add('selected'); selectedCells.add(cell); }
+      }
+    };
+    rect(last,td);
+  }else if(isCtrl){
+    td.classList.toggle('selected'); td.classList.contains('selected')?selectedCells.add(td):selectedCells.delete(td);
+  }else{
+    clearSelection(); td.classList.add('selected'); selectedCells.add(td);
+  }
+}
+
+function buildGlobalCodesBar(){
+  $codesBar.innerHTML = '';
+
+  const clearBtn=document.createElement('button');
+  clearBtn.className='badge'; clearBtn.textContent='Vider';
+  clearBtn.title='Effacer les cellules sélectionnées';
+  clearBtn.addEventListener('click',()=>{
+    const scope=[...selectedCells];
+    if(!scope.length) return;
+    const we = isSaisieWeekend();
+    scope.forEach(td=>{
+      ALL_CODES.forEach(c=>td.classList.remove(c));
+      td.classList.remove('PSITE','FERIE','LL');
+      td.textContent='';
+      if(!we) td.classList.remove('weekend');
+    });
+  });
+  $codesBar.appendChild(clearBtn);
+
+  const addBtn=(code,label)=>{
+    const b=document.createElement('button'); b.className='badge code'; b.dataset.code=code; b.textContent=code; b.title=`${code} ${label||''}`.trim();
+    if(code==='NP'){ b.style.background='#000'; b.style.color='#fff'; b.style.borderColor='#000'; b.title='NP Non planifié (fond noir)'; }
+    b.addEventListener('click',()=>{
+      const scope=[...selectedCells];
+      if(!scope.length) return;
+      const we = isSaisieWeekend();
+      const fer = isSaisieHoliday();
+      scope.forEach(td=>{
+        ALL_CODES.forEach(c=>td.classList.remove(c));
+        td.classList.remove('PSITE','FERIE','LL');
+        if(!we) td.classList.remove('weekend');
+
+        td.textContent=code;
+
+        if(code==='NP'){
+          td.classList.add('weekend');
+        }else{
+          td.classList.add(code);
+          if (/^P\d+$/.test(code)) td.classList.add('PSITE');
+          if(fer && code==='F') td.classList.add('FERIE');
+        }
+      });
+    });
+    return b;
+  };
+
+  MAIN_CODES.forEach(c => $codesBar.appendChild(addBtn(c, CODE_DEFS.find(d=>d.code===c)?.label)));
+
+  const btnLL = document.createElement('button');
+  btnLL.className = 'badge code';
+  btnLL.dataset.code = 'LL';
+  btnLL.textContent = 'LL';
+  btnLL.title = 'Libellé libre (texte au choix, fond gris)';
+  btnLL.addEventListener('click', ()=>{
+    const scope = [...selectedCells];
+    if (!scope.length) return;
+    const txt = prompt('Saisir le libellé libre (sera inscrit dans la cellule) :', '');
+    if (txt === null) return;
+    const value = String(txt).trim();
+    if (!value) return;
+
+    scope.forEach(td=>{
+      ALL_CODES.forEach(c=>td.classList.remove(c));
+      td.classList.remove('PSITE','FERIE','LL');
+      td.textContent = value;
+      td.classList.add('LL');
+    });
+  });
+  $codesBar.appendChild(btnLL);
+
+  const strip=document.createElement('div'); strip.className='psite-strip';
+  PSITE_CODES.forEach(c=> strip.appendChild(addBtn(c,'Présence autre site')));
+  $codesBar.appendChild(strip);
+}
+
+function buildResumeLegend(){
+  const wrap = document.getElementById('resume-legend');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  const addChip = (code, label, titleExtra='')=>{
+    const s = document.createElement('span');
+    s.className = 'chip code';
+    s.dataset.code = code;
+    s.textContent = code;
+    const lib = label ? ` — ${label}` : '';
+    s.title = `${code}${lib}${titleExtra ? ' — ' + titleExtra : ''}`;
+    wrap.appendChild(s);
+  };
+
+  MAIN_CODES.forEach(c=>{
+    const def = CODE_DEFS.find(d=>d.code===c);
+    addChip(c, def?.label || '');
+  });
+
+  const chipLL = document.createElement('span');
+  chipLL.className = 'chip code';
+  chipLL.dataset.code = 'LL';
+  chipLL.textContent = 'LL';
+  chipLL.title = 'Libellé libre (texte écrit dans la cellule, fond gris)';
+  wrap.appendChild(chipLL);
+
+  const label = document.createElement('span');
+  label.className = 'hint';
+  label.style.fontWeight = '800';
+  label.textContent = '';
+  wrap.appendChild(label);
+
+  const strip = document.createElement('div');
+  strip.className = 'legend-psite-strip';
+  PSITE_CODES.forEach(c=>{
+    const s = document.createElement('span');
+    s.className = 'chip code';
+    s.dataset.code = c;
+    s.textContent = c;
+    s.title = 'Présence autre site';
+    strip.appendChild(s);
+  });
+  wrap.appendChild(strip);
+}
+
+function isSaisieWeekend(){
+  const v = $dateInput.value;
+  if(!v) return false;
+  const d = new Date(v);
+  const g = d.getDay();
+  return g===0 || g===6;
+}
+function isSaisieHoliday(){
+  const v = $dateInput.value;
+  return v ? isHoliday(v) : false;
+}
+function paintWeekendInSaisie(){
+  const we = isSaisieWeekend();
+  document.querySelectorAll('#saisie-content td.cell').forEach(td=>{
+    if (we) td.classList.add('weekend');
+    else if (td.textContent.trim() !== 'NP') td.classList.remove('weekend');
+  });
+}
+
+function buildSection(title, rows){
+  const headerSlots = union(...rows.map(r=>r.slots||[]));
+
+  const wrap=document.createElement('div');
+  const titleEl=document.createElement('div'); titleEl.className='section-title'; titleEl.textContent=title;
+  wrap.appendChild(titleEl);
+
+  const table=document.createElement('table'); table.className='table';
+  const thead=document.createElement('thead');
+  const tr1=document.createElement('tr');
+  tr1.innerHTML='<th class="row-label">Nom / Ligne</th>'+headerSlots.map(s=>`<th>${s}</th>`).join('');
+  thead.appendChild(tr1); table.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    if (r.type) tr.dataset.type = r.type;
+    if (r._nom != null) tr.dataset.nom = r._nom;
+    if (r._prenom != null) tr.dataset.prenom = r._prenom;
+
+    const nameTd=document.createElement('td');
+    nameTd.className='row-label';
+    nameTd.textContent=r.label;
+    tr.appendChild(nameTd);
+
+    headerSlots.forEach(slot=>{
+      const td=document.createElement('td'); td.className='cell'; td.dataset.slot=slot;
+      td.addEventListener('click',ev=>handleCellClick(ev,td));
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function labelsFromMonthFile(file){
+  const byNorm = new Map();
+  Object.values(file || {}).forEach(rec=>{
+    (rec?.data?.rows || []).forEach(r=>{
+      const raw = String(r.label || "").trim();
+      if (!raw) return;
+      const k = norm(raw);
+      if (!byNorm.has(k)) byNorm.set(k, raw.toUpperCase());
+    });
+  });
+  return [...byNorm.values()];
+}
+function uniqByNorm(labels){
+  const m = new Map();
+  labels.forEach(lbl => {
+    const k = norm(lbl);
+    if (!m.has(k)) m.set(k, lbl.toUpperCase());
+  });
+  return [...m.values()];
+}
+function labelsFromDayData(dayData){
+  return (dayData?.rows || [])
+    .map(r => String(r.label||"").trim())
+    .filter(Boolean);
+}
+
+function buildSaisieUI(){
+  $saisieContent.innerHTML=''; clearSelection();
+  const sections=[];
+  const empRows=(personnel?.employes||[]).map(p=>({
+    label:`${p.nom} ${p.prenom||""}`.trim(),
+    slots:["Matin","A. Midi"],
+    _nom: p.nom || "",
+    _prenom: p.prenom || "",
+    type: "EMP"
+  }));
+  if(empRows.length) sections.push({title:"EMPLOYÉS", rows:empRows});
+
+  const intRows=(personnel?.interims||[]).map(p=>({
+    label:`${p.nom} ${p.prenom||""}`.trim(),
+    slots:["Matin","A. Midi"],
+    _nom: p.nom || "",
+    _prenom: p.prenom || "",
+    type: "INT"
+  }));
+  if(intRows.length) sections.push({title:"INTÉRIM", rows:intRows});
+
+  Object.entries(personnel?.livreurs||{}).forEach(([g,slots])=>{
+    const rows=[{
+      label:g,
+      slots: (Array.isArray(slots) && slots.length) ? slots : ["Matin","A. Midi"],
+      type: "LIV"
+    }];
+    sections.push({title:`LIVREURS — ${g}`, rows});
+  });
+
+  if (Array.isArray(HIST_ROWS_SAISIE) && HIST_ROWS_SAISIE.length){
+    HIST_ROWS_SAISIE = HIST_ROWS_SAISIE.map(r => Object.assign({ type: "" }, r));
+    sections.push({ title:"HISTORIQUE (ce jour)", rows: HIST_ROWS_SAISIE });
+  }
+
+  sections.forEach(s=> $saisieContent.appendChild(buildSection(s.title, s.rows)));
+  paintWeekendInSaisie();
+}
+
+async function prefillDay(){
+  if(!currentMagasin) return;
+  try{
+    const day=$dateInput.value;
+    const payload = await fetchJSON(`/day?magasin=${encodeURIComponent(currentMagasin)}&date=${day}`);
+
+    const labelsInDay = labelsFromDayData(payload?.data);
+    const currentLabels = new Set(
+      [...document.querySelectorAll('#saisie-content .row-label')].map(el=>norm(el.textContent))
+    );
+    const missing = labelsInDay
+      .map(lbl => ({ raw: lbl, key: norm(lbl) }))
+      .filter(x => !currentLabels.has(x.key));
+
+    if (missing.length){
+      const rowsMap = new Map((payload?.data?.rows||[]).map(r => [norm(r.label||""), r]));
+      HIST_ROWS_SAISIE = missing.map(x=>{
+        const rec = rowsMap.get(x.key) || {};
+        const slots = Object.keys(rec.values || {});
+        return { label: rec.label || x.raw, slots: (slots.length ? slots : ["Matin","A. Midi"]) };
+      });
+      buildSaisieUI();
+    }else{
+      HIST_ROWS_SAISIE = [];
+    }
+
+    applyPrefill(payload?.data||{});
+    applyHolidayDefaultsForDay();
+  }catch{}
+}
+function applyPrefill(data){
+  try{ takeSnapshotFromData(data); }catch(e){}
+  const map = new Map((data.rows || []).map(r => [norm(r.label), r.values || {}]));
+  $saisieContent.querySelectorAll('tbody tr').forEach(tr => {
+    const labelKey = norm(tr.querySelector('.row-label').textContent.trim());
+    const vals = map.get(labelKey) || {};
+    tr.querySelectorAll('td.cell').forEach(td => {
+      const v = vals[td.dataset.slot] || '';
+      ALL_CODES.forEach(c => td.classList.remove(c));
+      td.classList.remove('PSITE','FERIE','LL');
+      td.classList.remove('weekend');
+      td.textContent = v;
+      if (v) {
+        if (v === 'NP') td.classList.add('weekend');
+        else {
+          const isKnown = ALL_CODES.includes(v);
+          if (isKnown) {
+  td.classList.add(v);
+  if (/^P\d+$/.test(v)) td.classList.add('PSITE');
+  if (isSaisieHoliday() && v === 'F') td.classList.add('FERIE');
+} else if (/^P\d+$/.test(v)) {
+  td.classList.add(v, 'PSITE');
+} else {
+  td.classList.add('LL');
+}
+        }
+      }
+    });
+  });
+  paintWeekendInSaisie();
+}
+function applyHolidayDefaultsForDay(){
+  const day = $dateInput.value;
+  if(!day || !isHoliday(day)) return;
+  $saisieContent.querySelectorAll('td.cell').forEach(td=>{
+    const cur = td.textContent.trim();
+    if(!cur){
+      td.textContent = 'F';
+      td.classList.add('F','FERIE');
+    }else if(cur==='F'){
+      td.classList.add('FERIE');
+    }
+  });
+}
+
+function collectData(){
+  const rows=[];
+  $saisieContent.querySelectorAll('tbody tr').forEach(tr=>{
+    const label=tr.querySelector('.row-label').textContent.trim();
+    const values={};
+    tr.querySelectorAll('td.cell').forEach(td=>values[td.dataset.slot]=td.textContent.trim());
+    rows.push({label, values});
+  });
+  return {rows};
+}
+document.getElementById('btn-save').addEventListener('click', async ()=>{
+  const $busy=document.getElementById('save-busy'); if($busy) $busy.style.display='flex';
+  if(!currentMagasin) return;
+  const data=collectData(); $btnSave.disabled=true;
+  try{
+    await fetchJSON('/save',{method:'POST',body:JSON.stringify({magasin:currentMagasin,date:$dateInput.value,data})});
+    try{
+      const entries = computeCpDeltaAgainstSnapshotFromDOM();
+      if (entries && entries.length){
+        await postAdjustConges({ magasin: currentMagasin, date: $dateInput?.value || todayISO(), entries });
+        takeSnapshotFromData(collectData());
+      }
+    }catch(e){ console.warn('postAdjustConges failed', e?.message||e); }
+
+    alert('Enregistré ✔');
+  }catch{ alert("Échec de l'enregistrement"); }
+  finally{ $btnSave.disabled=false; const $busy=document.getElementById('save-busy'); if($busy) $busy.style.display='none'; }
+});
+$dateInput.addEventListener('change',async ()=>{
+  await prefillDay();
+  paintWeekendInSaisie();
+});
+document.getElementById('btn-fill-all').addEventListener('click', ()=>{
+  document.querySelectorAll('#saisie-content td.cell').forEach(td=>{
+    if (!td.textContent.trim()) {
+      td.textContent='P'; td.classList.add('P');
+    }
+  });
+});
+
+const $resumeStoreSel=document.getElementById('resume-store');
+["ANNEMASSE","BOURGOIN","CHASSE SUR RHONE","CHASSIEU","GLEIZE","LA MOTTE SERVOLEX","MIRIBEL","PAVI","RENAGE","RIVES","SAINT-MARTIN-D'HERES","SEYNOD","ST EGREVE","ST-JEAN-BONNEFONDS"]
+ .forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; $resumeStoreSel.appendChild(o); });
+
+document.getElementById('btn-load-store').addEventListener('click', loadResumeForStore);
+async function loadResumeForStore(){
+  $resumeError.style.display='none';
+  $resumeContent.innerHTML='<div class="loading">Chargement en cours…</div>';
+  const ym=$resumeMonth.value, mag=$resumeStore.value;
+  try{
+    const data = await fetchJSON(`/month-store?yyyymm=${ym}&magasin=${encodeURIComponent(mag)}`);
+    renderOneStore(ym, mag, data);
+  }catch(e){
+    $resumeError.textContent="Impossible de charger le résumé.";
+    $resumeError.style.display='block';
+    $resumeContent.innerHTML='';
+  }
+}
+function renderOneStore(yyyymm, magasin, data){
+  const days = daysOfMonth(yyyymm);
+  const file = data.file || {};
+  const pers = data.personnel || {employes:[], interims:[], livreurs:{}};
+
+  const wrap = document.createElement('div');
+  const title = document.createElement('div'); title.className='section-title'; title.textContent=magasin; wrap.appendChild(title);
+
+  const isWE = d => { const x=d.getDay(); return x===0||x===6; };
+
+  function makeSection(title, labels, slotsResolver){
+    if(!labels.length) return null;
+
+    const all=new Set(), order=[];
+    labels.forEach(lbl=>{
+      const key = norm(lbl);
+      Object.values(file).forEach(day=>{
+        const found = (day?.data?.rows||[]).find(r=> norm(r.label)===key);
+        if(found){ Object.keys(found.values||{}).forEach(s=>{ if(!all.has(s)){ all.add(s); order.push(s); } }); }
+      });
+      const def = slotsResolver(lbl) || [];
+      def.forEach(s=>{ if(!all.has(s)){ all.add(s); order.push(s); }});
+    });
+
+    const table=document.createElement('table'); table.className='table';
+    const thead=document.createElement('thead');
+
+    const trA=document.createElement('tr');
+    trA.innerHTML = '<th class="row-label">Nom / Ligne</th>';
+    days.forEach(d=>{ const th=document.createElement('th'); th.colSpan=order.length; th.textContent=dowLetter(d); trA.appendChild(th); });
+    thead.appendChild(trA);
+
+    const trB=document.createElement('tr');
+    trB.innerHTML = '<th class="sub-label"> </th>';
+    days.forEach(d=>{ const th=document.createElement('th'); th.colSpan=order.length; th.textContent=String(d.getDate()); trB.appendChild(th); });
+    thead.appendChild(trB);
+
+    const trC=document.createElement('tr');
+    trC.innerHTML = '<th class="sub-label"> </th>';
+    days.forEach(()=>{ order.forEach(s=>{ const th=document.createElement('th'); th.textContent=s; trC.appendChild(th); }); });
+    thead.appendChild(trC);
+
+    table.appendChild(thead);
+
+    const tbody=document.createElement('tbody');
+    labels.forEach(lbl=>{
+      const tr=document.createElement('tr');
+      const td0=document.createElement('td'); td0.className='row-label'; td0.textContent=lbl; tr.appendChild(td0);
+      days.forEach(d=>{
+        const dk = ymd(d);
+        const rec = file[dk];
+        let values={};
+        if(rec?.data?.rows){
+          const found = rec.data.rows.find(r => norm(r.label) === norm(lbl));
+          values = found?.values || {};
+        }
+        order.forEach(slot=>{
+          const td=document.createElement('td'); td.className='cell';
+          if(isWE(d)) td.classList.add('weekend');
+let v = String(values[slot] || '').trim().toUpperCase();
+if (!v && isHoliday(dk)) v = 'F';
+
+td.textContent = v;
+
+if (v) {
+  if (v === 'NP') {
+    td.classList.add('weekend');
+  } else {
+    if (ALL_CODES.includes(v)) {
+      td.classList.add(v);
+      if (/^P\d+$/.test(v)) td.classList.add('PSITE');
+      if (isHoliday(dk) && v === 'F') td.classList.add('FERIE');
+    } else if (/^P\d+$/.test(v)) {
+      td.classList.add('PSITE');
+    } else {
+      td.classList.add('LL');
+    }
+  }
+}
+          tr.appendChild(td);
+        });
+      });
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    const block=document.createElement('div'); const sub=document.createElement('div'); sub.className='section-sub'; sub.textContent=title;
+    block.appendChild(sub); block.appendChild(table);
+    return block;
+  }
+
+  const empLabels = (pers.employes||[]).map(p=>`${p.nom} ${p.prenom||""}`.trim());
+  const intLabels = (pers.interims||[]).map(p=>`${p.nom} ${p.prenom||""}`.trim());
+  const livreurGroups = Object.keys(pers.livreurs||{});
+
+  const knownNow = new Set([...empLabels, ...intLabels, ...livreurGroups].map(norm));
+  const histLabelsAll = labelsFromMonthFile(file);
+  const histOld = uniqByNorm(histLabelsAll.filter(lbl => !knownNow.has(norm(lbl))));
+
+  const empSec = makeSection("EMPLOYÉS", empLabels, ()=>["Matin","A. Midi"]);
+  if(empSec) wrap.appendChild(empSec);
+
+  const sub = document.createElement('div');
+  sub.className = 'section-sub';
+  sub.style.marginTop = '14px';
+  sub.textContent = 'Congés restants (EMPLOYÉS)';
+  wrap.appendChild(sub);
+
+  const line = document.createElement('div');
+  line.style.display = 'flex';
+  line.style.flexWrap = 'wrap';
+  line.style.gap = '8px';
+  line.style.alignItems = 'center';
+  line.style.background = '#fff';
+  line.style.border = '1px solid var(--line)';
+  line.style.borderRadius = '10px';
+  line.style.padding = '10px';
+
+  const arr = (pers.employes||[])
+    .slice()
+    .sort((a,b)=> norm(a.nom).localeCompare(norm(b.nom)) || norm(a.prenom).localeCompare(norm(b.prenom)));
+
+  if (arr.length) {
+    arr.forEach(p=>{
+      const badge = document.createElement('span');
+      badge.style.display = 'inline-block';
+      badge.style.padding = '6px 10px';
+      badge.style.border = '1px solid var(--line)';
+      badge.style.borderRadius = '999px';
+      badge.style.background = '#fafafa';
+      badge.style.fontWeight = '700';
+      badge.style.fontSize = '.9rem';
+      const solde = Number(p.congeRestant||0);
+      badge.textContent = `${(p.nom||'').toUpperCase()} ${p.prenom||''} — ${solde} j`;
+      line.appendChild(badge);
+    });
+  } else {
+    const empty = document.createElement('span');
+    empty.textContent = '—';
+    line.appendChild(empty);
+  }
+  wrap.appendChild(line);
+
+  const intSec = makeSection("INTÉRIM", intLabels, ()=>["Matin","A. Midi"]);
+  if(intSec) wrap.appendChild(intSec);
+
+  Object.entries(pers.livreurs||{}).forEach(([g,slots])=>{
+    const sec = makeSection(`LIVREURS — ${g}`, [g], ()=> (slots&&slots.length? slots : ["Matin","A. Midi"]));
+    if(sec) wrap.appendChild(sec);
+  });
+
+  if (histOld.length){
+    const histSec = makeSection("ANCIENNE TRAME", histOld, ()=>["Matin","A. Midi"]);
+    if (histSec) wrap.appendChild(histSec);
+  }
+
+  $resumeContent.innerHTML=''; $resumeContent.appendChild(wrap);
+}
+
+try{ const saved = localStorage.getItem('leavesToken'); if(saved){ $leavesPass.value = saved; } }catch{}
+document.getElementById('resume-month').value=thisYM();
+document.getElementById('today').textContent = todayISO();
+
+const $magBtnsWrap2=document.getElementById('magasin-buttons');
+MAGASINS.forEach(m=>{ const b=document.createElement('button'); b.textContent=m; b.addEventListener('click',()=>selectMagasin(m,b)); $magBtnsWrap2.appendChild(b); });
+MAGASINS.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; $arMag.appendChild(o); });
+
+$arCode.innerHTML = '';
+const grpStd = document.createElement('optgroup');
+grpStd.label = 'Codes standards';
+CODE_DEFS.filter(d => MAIN_CODES.includes(d.code)).forEach(({ code, label }) => {
+  const o = document.createElement('option'); o.value = code; o.textContent = `${code} — ${label}`; grpStd.appendChild(o);
+});
+const grpPS = document.createElement('optgroup');
+grpPS.label = 'Présence autre site (P1…P22)';
+PSITE_CODES.forEach(code => { const o = document.createElement('option'); o.value = code; o.textContent = `${code} — Présence autre site`; grpPS.appendChild(o); });
+$arCode.appendChild(grpStd); $arCode.appendChild(grpPS);
+
+async function selectMagasin(mag,btn){
+  currentMagasin=mag;
+  document.querySelectorAll('#magasin-buttons button').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active'); $currMag.textContent=mag;
+  $magLoading.style.display='block';
+  try{ await loadPersonnel(); } finally { $magLoading.style.display='none'; }
+  HIST_ROWS_SAISIE = [];
+  buildSaisieUI();
+  buildGlobalCodesBar();
+  $dateInput.value=todayISO();
+  await prefillDay();
+  switchTab('saisie');
+}
+async function loadPersonnel(){
+  try{ personnel = await fetchJSON(`/personnel?magasin=${encodeURIComponent(currentMagasin)}`); }
+  catch{ personnel = { employes:[], interims:[], livreurs:{} }; }
+}
+
+$dateInput.addEventListener('change',async ()=>{
+  await prefillDay();
+  paintWeekendInSaisie();
+});
+
+$loginForm.addEventListener('submit', (ev)=>{
+  ev.preventDefault();
+  const pw = $leavesPass.value.trim();
+  if(!pw){ alert('Mot de passe requis'); return; }
+  sessionStorage.setItem('leavesToken', pw);
+  if($rememberPw.checked){ try{ localStorage.setItem('leavesToken', pw); }catch{} }
+  $leavesError.style.display='none';
+  $arBox.style.display='block'; if($exBox) $exBox.style.display='block'; if($exMonth && !$exMonth.value){ $exMonth.value=thisYM(); }
+  if(currentMagasin) $arMag.value = currentMagasin;
+  loadAdminPersonnel();
+  loadLeaves();
+});
+
+$arMag.addEventListener('change', loadAdminPersonnel);
+async function loadAdminPersonnel(){
+  $arPers.innerHTML = '<option value="">— Chargement… —</option>';
+  $arPers.disabled = true;
+
+  const mag = $arMag.value;
+  if(!mag){
+    $arPers.innerHTML = '<option value="">— Personnel —</option>';
+    $arPers.disabled = true;
+    return;
+  }
+  try{
+    const pers = await fetchJSON(`/personnel?magasin=${encodeURIComponent(mag)}`);
+    const defaultSlots = ["Matin","A. Midi"];
+
+    $arPers.innerHTML = '<option value="">— Sélectionnez un personnel —</option>';
+
+    const add = (p)=>{ 
+      const o=document.createElement('option'); 
+      o.value = `${p.nom} ${p.prenom||""}`.trim();
+      o.textContent = `${(p.nom||'').toUpperCase()} ${p.prenom||""}`.trim();
+      o.dataset.nom = p.nom || ""; 
+      o.dataset.prenom = p.prenom || ""; 
+      o.dataset.slots = defaultSlots.join('|');
+      $arPers.appendChild(o); 
+    };
+
+    (pers.employes||[]).forEach(add);
+    (pers.interims||[]).forEach(add);
+
+    Object.entries(pers.livreurs||{}).forEach(([g,slots])=>{
+      const o = document.createElement('option');
+      o.value = g;
+      o.textContent = `Livreur — ${g}`;
+      o.dataset.nom = g;
+      o.dataset.prenom = "";
+      o.dataset.slots = (Array.isArray(slots) && slots.length ? slots : defaultSlots).join('|');
+      $arPers.appendChild(o);
+    });
+
+    $arPers.disabled = false;
+  }catch{
+    $arPers.innerHTML = '<option value="">— Erreur réseau —</option>';
+    $arPers.disabled = true;
+  }
+}
+
+$arAdd.addEventListener('click', async ()=>{
+  const token = sessionStorage.getItem('leavesToken');
+    try{
+      if (($arCode?.value||'') === 'CP'){
+        const mag = $arMag?.value || currentMagasin;
+        const opt = $arPers?.selectedOptions?.[0];
+        const du = $arDu?.value, au = $arAu?.value;
+        const slots = String(opt?.dataset?.slots||'Matin|A. Midi').split('|').filter(Boolean);
+        const d1 = new Date(du), d2 = new Date(au);
+        let workdays = 0;
+        for (let d = new Date(d1); d <= d2; d.setDate(d.getDate()+1)){
+          const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          const g = d.getDay();
+          if (g!==0 && g!==6 && !isHoliday(iso)) workdays++;
+        }
+        const delta = -0.5 * Math.max(1, slots.length) * workdays;
+        if (delta){
+          const nom = opt?.dataset?.nom||''; const prenom = opt?.dataset?.prenom||'';
+          await postAdjustConges({ magasin: mag, date: du, entries: [{ fullName: opt?.value||`${nom} ${prenom}`.trim(), nom, prenom, delta }] });
+        }
+      }
+    }catch(e){ console.warn('Admin CP adjust failed', e?.message||e); }
+  if(!token){ alert("Connectez-vous d'abord."); return; }
+
+  const magasin = $arMag.value;
+  const opt = $arPers.selectedOptions[0];
+  const nom = opt?.dataset?.nom||"";
+  const prenom = opt?.dataset?.prenom||"";
+  const code = $arCode.value;
+  const du = $arDu.value;
+  const au = $arAu.value;
+  const slots = String(opt?.dataset?.slots||"Matin|A. Midi").split('|').map(s=>s.trim()).filter(Boolean);
+   
+  if(!magasin || !nom || !code || !du || !au){
+    $arMsg.textContent="Champs manquants."; $arMsg.style.color="#a40000"; return;
+  }
+  $arAdd.disabled=true; $arMsg.textContent="Ajout en cours…"; $arMsg.style.color="#666";
+  try{
+    await fetchJSON('/range-mark', { method:'POST', body: JSON.stringify({ magasin, nom, prenom, code, dateDu:du, dateAu:au, slots }) });
+    $arMsg.textContent="Ajout effectué ✔ (jours ouvrés)"; $arMsg.style.color="#1a7f37";
+  }catch(e){
+    $arMsg.textContent="Échec de l’ajout."; $arMsg.style.color="#a40000";
+  }finally{ $arAdd.disabled=false; }
+});
+
+async function loadLeaves(){
+  const token = sessionStorage.getItem('leavesToken');
+  if(!token){
+    $leavesError.textContent = "Veuillez vous connecter avec le mot de passe admin pour afficher les demandes.";
+    $leavesError.style.display='block';
+    $leavesContent.innerHTML = "";
+    return;
+  }
+  $leavesError.style.display='none';
+  $leavesContent.innerHTML = '<div class="loading">Chargement des demandes…</div>';
+  try{
+    const data = await fetchJSON('/leaves?all=1', { headers:{} });
+    const arr = Array.isArray(data.leaves) ? data.leaves : [];
+    if(!arr.length){ $leavesContent.innerHTML = '<div class="loading">Aucune demande trouvée.</div>'; return; }
+    renderLeaves(arr);
+  }catch(e){
+    const msg = (String(e?.message||'').includes('401')) ? "Mot de passe invalide (401)." : "Impossible de charger les demandes (mot de passe ou réseau).";
+    $leavesError.textContent = msg; $leavesError.style.display='block'; $leavesContent.innerHTML = '';
+  }
+}
+function statusLabelFR(s){
+  switch(String(s||"").toLowerCase()){
+    case "pending":   return "en attente";
+    case "accepted":  return "validée";
+    case "rejected":  return "refusée";
+    case "cancelled": return "annulée";
+    default:          return String(s||"");
+  }
+}
+function renderLeaves(items){
+  items.sort((a,b)=> String(b.createdAt).localeCompare(String(a.createdAt)));
+  const wrap=document.createElement('div');
+
+  items.forEach(it=>{
+    const card=document.createElement('div');
+    card.style.border='1px solid var(--line)'; card.style.borderRadius='10px'; card.style.background='#fff';
+    card.style.padding='10px'; card.style.margin='8px 0';
+
+    const h = document.createElement('div');
+    h.innerHTML = `<b>${(it.nom||'').toUpperCase()} ${it.prenom||''}</b> — <span style="color:var(--muted)">${it.magasin||'?'}</span>`;
+    card.appendChild(h);
+
+    const p = document.createElement('div');
+    p.style.fontSize='.95rem';
+    p.innerHTML = `Période: <b>${it.dateDu}</b> → <b>${it.dateAu}</b> • ${it.nbJours||'?'} jour(s) • Service: ${it.service||'-'} • Email: ${it.email||''}`;
+    card.appendChild(p);
+
+    const status = document.createElement('div');
+    status.style.marginTop='6px';
+    const lib = it.statusFr || statusLabelFR(it.status);
+    status.innerHTML = `Statut: <b>${lib}</b>` + (it.reason? ` — ${it.reason}`:'');
+    card.appendChild(status);
+
+    const actions = document.createElement('div'); actions.className='leaf-actions';
+    actions.style.marginTop='8px'; actions.style.display='flex'; actions.style.gap='8px';
+
+    const loadingRow = document.createElement('div'); loadingRow.className='inline-loading';
+    loadingRow.style.display='none';
+    loadingRow.innerHTML = '<span class="spinner"></span><span class="loading-text">Traitement…</span>';
+    const setBusy = (busy, text) => {
+      if(text) loadingRow.querySelector('.loading-text').textContent = text;
+      actions.style.display = busy ? 'none' : 'flex';
+      loadingRow.style.display = busy ? 'flex' : 'none';
+    };
+
+    if(String(it.status)==="pending"){
+      const btnAccept = document.createElement('button');
+      btnAccept.className='badge action btn-accept';
+      btnAccept.textContent='Accepter';
+      btnAccept.addEventListener('click', ()=>{ setBusy(true, 'Validation…'); decideLeave(it.id,'accept',"",{ setBusy });});
+      const btnReject = document.createElement('button');
+      btnReject.className='badge action btn-reject';
+      btnReject.textContent='Refuser';
+      btnReject.addEventListener('click', ()=>{ const r=prompt("Motif du refus ? (optionnel)",""); if(r===null) return; setBusy(true, 'Refus…'); decideLeave(it.id,'reject', r||"", { setBusy });});
+      actions.appendChild(btnAccept); actions.appendChild(btnReject);
+    } else if (String(it.status)==="accepted"){
+      const btnCancel = document.createElement('button');
+      btnCancel.className='badge action btn-cancel';
+      btnCancel.textContent='Annuler';
+      btnCancel.addEventListener('click', ()=>{ if(!confirm("Annuler la validation et retirer les CP ajoutés ?")) return; setBusy(true, 'Annulation…'); cancelLeave(it.id, { setBusy });});
+      actions.appendChild(btnCancel);
+    }
+
+    if(actions.childElementCount) card.appendChild(actions);
+    card.appendChild(loadingRow);
+    wrap.appendChild(card);
+  });
+
+  $leavesContent.innerHTML=''; $leavesContent.appendChild(wrap);
+}
+async function decideLeave(id, decision, reason="", ui){
+  try{
+    await fetchJSON('/leaves/decision', { method:'POST', body: JSON.stringify({ id, decision, reason }) });
+    alert('Décision enregistrée.');
+    loadLeaves();
+  }catch(e){
+    ui?.setBusy?.(false);
+    alert('Échec de la décision: ' + (e?.message||''));
+  }
+}
+async function cancelLeave(id, ui){
+  try{
+    await fetchJSON('/leaves/decision', { method:'POST', body: JSON.stringify({ id, decision:'cancel' }) });
+    alert('Validation annulée et jours supprimés.');
+    loadLeaves();
+  }catch(e){
+    ui?.setBusy?.(false);
+    alert('Échec de l’annulation: ' + (e?.message||''));
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  const key = e.key;
+  if (key !== 'Backspace' && key !== 'Delete') return;
+  const a = document.activeElement;
+  const inEditable = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || a.isContentEditable);
+  if (inEditable) return;
+  const scope = [...selectedCells].filter(td => td.closest('#saisie-content'));
+  if (!scope.length) return;
+  e.preventDefault();
+  const we = isSaisieWeekend();
+  scope.forEach(td => {
+    ALL_CODES.forEach(c => td.classList.remove(c));
+    td.classList.remove('PSITE','FERIE','LL');
+    td.textContent = '';
+    if(!we) td.classList.remove('weekend');
+  });
+});
+
+document.getElementById('today').textContent = todayISO();
+document.getElementById('resume-month').value=thisYM();
+buildResumeLegend();
+
+if ($exRun){
+  $exRun.addEventListener('click', async ()=>{
+    const ym = $exMonth?.value;
+    if(!ym){ alert('Choisissez un mois.'); return; }
+    const token = sessionStorage.getItem('leavesToken') || '';
+    try{
+      $exRun.disabled = true; $exBusy.style.display='flex';
+      const r = await fetch('/presence/export-month?yyyymm='+encodeURIComponent(ym), {
+        headers: token ? {'X-Admin-Token': token} : {}
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Presences_${ym}.xlsx`;
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+    }catch(e){
+      alert("Échec de l'export : " + (e?.message||''));
+    }finally{
+      $exRun.disabled = false; $exBusy.style.display='none';
+    }
+  });
+}
+</script>
+
+</body>
+</html>

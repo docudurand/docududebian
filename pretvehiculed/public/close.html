@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<!--fichier: cloture pret vehicule-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Clôturer un prêt</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    *{ box-sizing: border-box; min-width:0; }
+    html, body { width:100%; max-width:100%; overflow-x:hidden; }
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      margin:0; padding:16px; color:#073763; background:#fff;
+    }
+    .card{
+      max-width:560px; width:100%;
+      margin:0 auto; background:#fff;
+      border:1px solid #e5e7eb; border-radius:14px;
+      padding:16px; box-shadow:0 6px 18px #0001;
+      overflow:visible;
+    }
+    h1{font-size:1.1rem;margin:0 0 8px}
+    label{display:block;font-weight:600;margin-top:10px}
+    input,select,button{
+      width:100%; display:block;
+      padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px;
+      background:#fff; color:#073763; font-size:1rem;
+    }
+    input[type="date"], input[type="time"]{
+      -webkit-appearance:none; appearance:none; background-clip:padding-box;
+    }
+    @supports (-webkit-touch-callout: none) {
+      input[type="date"], input[type="time"]{ padding-right: 18px; }
+    }
+    button{
+      background:#004080; color:#fff; font-weight:700; margin-top:12px; border:0; cursor:pointer;
+    }
+    button[disabled]{opacity:.6; cursor:not-allowed}
+    .muted{opacity:.85}
+    .notice{margin-top:10px;font-size:.95rem}
+    .ok{color:#2e7d32}.err{color:#c62828}.info{color:#073763}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Clôturer le prêt</h1>
+    <div id="info" class="muted"></div>
+
+    <div id="selectorWrap" style="display:none">
+      <label for="selLoan">Sélectionner le prêt en cours</label>
+      <select id="selLoan"></select>
+    </div>
+
+    <label for="date">Date retour</label>
+    <input id="date" type="date" autocomplete="off">
+
+    <label for="time">Heure retour</label>
+    <input id="time" type="time" autocomplete="off">
+
+    <label for="receptionnaire">Réceptionnaire</label>
+    <input id="receptionnaire" type="text" placeholder="Nom réceptionnaire" autocomplete="off">
+
+    <button id="ok" type="button">Valider la clôture</button>
+    <div class="notice info" id="notice"></div>
+  </div>
+
+  <script>
+    const BASE_URL = '/pret/api';
+    const qp = new URLSearchParams(location.search);
+    let loanId    = (qp.get('loan_id') || '').trim();
+    let immat     = (qp.get('immat') || '').trim();
+    let vehicleId = (qp.get('vehicle_id') || '').trim();
+
+    const $info = document.getElementById('info');
+    const $date = document.getElementById('date');
+    const $time = document.getElementById('time');
+    const $recept = document.getElementById('receptionnaire');
+    const $notice = document.getElementById('notice');
+    const $ok = document.getElementById('ok');
+    const $selectorWrap = document.getElementById('selectorWrap');
+    const $selLoan = document.getElementById('selLoan');
+
+    const p2=n=>String(n).padStart(2,'0');
+    function setNotice(msg, cls='info'){ $notice.textContent = msg||''; $notice.className = 'notice '+cls; }
+    async function fetchJSON(url){ const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+    const normalizeStatus = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const isOpenStatus = s => normalizeStatus(s) === 'en cours';
+    const isClosedStatus = s => normalizeStatus(s).startsWith('clot');
+
+    const setInputsEnabled = on => { [$date,$time,$recept,$ok].forEach(el=>el.disabled = !on); };
+
+    const now=new Date();
+    $date.value=`${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`;
+    $time.value=`${p2(now.getHours())}:${p2(now.getMinutes())}`;
+
+    function fmtDate(v){
+      const d=new Date(v);
+      return isNaN(d)?'':`${p2(d.getDate())}/${p2(d.getMonth()+1)}/${String(d.getFullYear()).slice(-2)}`;
+    }
+    function fmtTime(v){
+      const d=new Date(v); if(!isNaN(d)) return `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+      if(typeof v==='string' && /^\d{1,2}:\d{2}/.test(v)) return v.slice(0,5);
+      return '';
+    }
+
+    function lockForm(msg, cls='info'){
+      setNotice(msg, cls);
+      setInputsEnabled(false);
+      $ok.textContent = 'Clôture indisponible';
+    }
+    function lockAfterSuccess(){
+      setInputsEnabled(false);
+      $ok.textContent = 'Déjà clôturé';
+    }
+
+    async function resolveVehicleFromImmatAndLoan(){
+      if (!immat || !loanId) return null;
+      try{
+        const rows = await fetchJSON(`${BASE_URL}/loans/search?` + new URLSearchParams({immat}));
+        const match = (rows||[]).find(r => String(r.loan_id)===String(loanId));
+        if (match){
+          vehicleId = match.vehicle_id || vehicleId;
+          immat     = match.immatriculation || immat;
+
+          if (!isOpenStatus(match.status)) {
+            const when = [fmtDate(match.date_retour), fmtTime(match.heure_retour)].filter(Boolean).join(' • ');
+            lockForm(`Prêt déjà clôturé${when?` (${when})`:''}.`, 'info');
+            return 'CLOSED';
+          }
+
+          setNotice('Prêt en cours détecté.','ok');
+          setInputsEnabled(true);
+          return 'OPEN';
+        }
+        return null;
+      }catch{ return null; }
+    }
+
+    async function resolveLoan(){
+      $info.textContent = immat ? `Véhicule : ${immat}` : 'Véhicule non précisé';
+
+      setNotice('Chargement en cours…','info');
+      setInputsEnabled(false);
+
+      if (loanId && immat){
+        const state = await resolveVehicleFromImmatAndLoan();
+        if (state === 'CLOSED' || state === 'OPEN') return;
+      }
+
+      if (!loanId && immat) {
+        try{
+          setNotice('Recherche du prêt en cours…','info');
+          const rows = await fetchJSON(`${BASE_URL}/loans/search?` + new URLSearchParams({immat}));
+          const open = (rows||[]).filter(r => isOpenStatus(r.status));
+
+          if (open.length === 0) {
+            lockForm('Aucun prêt en cours pour ce véhicule. (Peut-être déjà clôturé)', 'info');
+            return;
+          }
+
+          if (open.length === 1) {
+            loanId    = open[0].loan_id;
+            vehicleId = open[0].vehicle_id || vehicleId;
+            immat     = open[0].immatriculation || immat;
+            setNotice('Prêt en cours détecté.', 'ok');
+            setInputsEnabled(true);
+            return;
+          }
+
+          $selectorWrap.style.display = 'block';
+          $selLoan.innerHTML = open.map(r=>{
+            const d = [fmtDate(r.date_depart), fmtTime(r.heure_depart)].filter(Boolean).join(' • ');
+            const label = `${r.immatriculation||'—'} — ${r.chauffeur_nom||'—'} (${d||'date ?'})`;
+            return `<option value="${r.loan_id}" data-veh="${r.vehicle_id||''}">${label}</option>`;
+          }).join('');
+          loanId    = $selLoan.value;
+          vehicleId = $selLoan.options[$selLoan.selectedIndex]?.dataset?.veh || '';
+          $selLoan.addEventListener('change', ()=>{
+            loanId    = $selLoan.value;
+            vehicleId = $selLoan.options[$selLoan.selectedIndex]?.dataset?.veh || '';
+          });
+          setNotice('Plusieurs prêts en cours — sélectionnez celui à clôturer.', 'info');
+          setInputsEnabled(true);
+          return;
+        }catch(e){
+          lockForm('Erreur lors de la recherche : '+e.message, 'err');
+          return;
+        }
+      }
+
+      if (!loanId) {
+        lockForm('Identifiant de prêt manquant. Scannez un QR récent (ou ajoutez ?loan_id=... à l’URL).', 'err');
+      }
+    }
+
+    let busy = false;
+    let closedDone = false;
+
+    async function submitClose(){
+      if (busy || closedDone) return;
+      busy = true;
+      document.activeElement && document.activeElement.blur();
+      $ok.disabled = true;
+      $ok.textContent = 'Clôture en cours…';
+      try{
+        if (!vehicleId && immat && loanId){
+          const state = await resolveVehicleFromImmatAndLoan();
+          if (state === 'CLOSED'){ closedDone = true; lockAfterSuccess(); return; }
+          if (!vehicleId && state !== 'OPEN'){
+            setNotice('Impossible de déterminer le véhicule (vehicle_id manquant).', 'err');
+            return;
+          }
+        }
+        if (!loanId){ setNotice('Identifiant de prêt manquant.', 'err'); return; }
+        if (!vehicleId){ setNotice('Impossible de déterminer le véhicule du prêt (vehicle_id manquant).', 'err'); return; }
+
+        const payload = {
+          vehicle_id: vehicleId,
+          date_retour: $date.value,
+          heure_retour: $time.value,
+          receptionnaire_retour: $recept.value.trim()
+        };
+
+        const r = await fetch(`${BASE_URL}/loans/${encodeURIComponent(loanId)}/close`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error||'Erreur API');
+
+        setNotice('Prêt clôturé.', 'ok');
+        $ok.textContent = 'Clôture réussie';
+        closedDone = true;
+        lockAfterSuccess();
+      }catch(e){
+        setNotice('Échec : '+e.message, 'err');
+        $ok.textContent = 'Valider la clôture';
+        $ok.disabled = false;
+      }finally{
+        busy = false;
+        if (closedDone){
+          lockAfterSuccess();
+        }
+      }
+    }
+
+    $ok.addEventListener('click', submitClose);
+    $ok.addEventListener('touchend', (e)=>{ e.preventDefault(); submitClose(); }, { passive:false });
+
+    resolveLoan();
+  </script>
+</body>
+</html>

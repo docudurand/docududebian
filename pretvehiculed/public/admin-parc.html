@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<!--admin parc pret vehicule - version avec CT et Pollution-->
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Parc & prêts véhicules</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --primary:#004080; --ink:#073763; --line:#e5e7eb; --scale:1.2; --bw:calc(1px*var(--scale)); }
+    *{box-sizing:border-box} html{font-size:calc(100%*var(--scale));}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:#fff}
+
+    .siteBanner{width:100%;height:auto;display:block}
+
+    .wrap{max-width:calc(1400px*var(--scale));margin:calc(24px*var(--scale)) auto;padding:calc(16px*var(--scale))}
+    
+    .tabs{
+      display:flex;gap:calc(8px*var(--scale));margin-bottom:calc(16px*var(--scale));
+      border-bottom:calc(2px*var(--scale)) solid var(--line);padding-bottom:calc(8px*var(--scale))
+    }
+    .tab{
+      background:#fff;border:var(--bw) solid var(--line);color:#073763;
+      border-radius:calc(8px*var(--scale)) calc(8px*var(--scale)) 0 0;
+      padding:calc(10px*var(--scale)) calc(18px*var(--scale));cursor:pointer;font-weight:700;
+      transition:all 0.2s
+    }
+    .tab:hover{background:#f8fbff}
+    .tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    
+    .tab-content{display:none}
+    .tab-content.active{display:block;animation:fadeIn 0.3s}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)}}
+    
+    .card{
+      background:#fff;border:var(--bw) solid var(--line);border-radius:calc(14px*var(--scale));
+      padding:calc(20px*var(--scale));margin-bottom:calc(16px*var(--scale));
+      box-shadow:0 calc(2px*var(--scale)) calc(8px*var(--scale)) #0001
+    }
+    
+    h2{font-size:1.3rem;color:var(--primary);margin:calc(20px*var(--scale)) 0 calc(12px*var(--scale));font-weight:700}
+    
+    .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:calc(12px*var(--scale));margin-bottom:calc(16px*var(--scale))}
+    .form-group{display:flex;flex-direction:column;margin-bottom:calc(12px*var(--scale))}
+    label{font-weight:600;margin-bottom:calc(6px*var(--scale));color:var(--ink);font-size:.95rem}
+    input,select,textarea{
+      padding:calc(10px*var(--scale)) calc(12px*var(--scale));
+      border:var(--bw) solid var(--line);border-radius:calc(10px*var(--scale));
+      font-size:1rem;font-family:inherit
+    }
+    input:focus,select:focus,textarea:focus{
+      outline:none;border-color:var(--primary);
+      box-shadow:0 0 0 calc(2px*var(--scale)) rgba(0,64,128,0.1)
+    }
+    
+    button{
+      border:0;border-radius:calc(10px*var(--scale));
+      padding:calc(12px*var(--scale)) calc(18px*var(--scale));
+      font-weight:700;cursor:pointer;font-size:1rem;transition:all 0.2s
+    }
+    .btn{background:var(--primary);color:#fff}
+    .btn:hover{background:#003366;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,64,128,0.3)}
+    .btn-mini{padding:calc(6px*var(--scale)) calc(12px*var(--scale));font-size:.9rem}
+    .btn-light{background:#eef5ff;color:#004080;border:var(--bw) solid #d6e6ff}
+    .btn-light:hover{background:#d6e6ff}
+    .btn-ghost{background:#fff;color:#073763;border:var(--bw) solid var(--line)}
+    .btn-ghost:hover{background:#f8f9fa}
+    .btn-danger{background:#c62828;color:#fff}
+    .btn-danger:hover{background:#a02020}
+    button[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+    
+    table{
+      width:100%;border-collapse:separate;border-spacing:0;
+      background:#fff;border:var(--bw) solid var(--line);border-radius:calc(14px*var(--scale));overflow:hidden
+    }
+    thead th{
+      background:#f8fbff;text-align:left;padding:calc(12px*var(--scale));
+      border-bottom:var(--bw) solid var(--line);font-weight:700;color:var(--primary)
+    }
+    tbody td{padding:calc(10px*var(--scale));border-bottom:var(--bw) solid #f1f3f5;vertical-align:middle}
+    tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#fafbfc}
+    
+    .pill{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:calc(4px*var(--scale)) calc(10px*var(--scale));
+      border-radius:999px;border:var(--bw) solid var(--line);
+      font-size:.85rem;font-weight:600;min-width:calc(90px*var(--scale))
+    }
+    .pill.ok{background:#f2faf4;color:#2e7d32;border-color:#b7e3c3}
+    .pill.warn{background:#fff8e1;color:#8a6d00;border-color:#ffe082}
+    .pill.danger{background:#ffebee;color:#c62828;border-color:#ef9a9a}
+    
+    .actions{display:flex;gap:calc(6px*var(--scale));flex-wrap:wrap}
+    
+    .notice{
+      padding:calc(12px*var(--scale)) calc(16px*var(--scale));
+      border-radius:calc(10px*var(--scale));margin-bottom:calc(16px*var(--scale));
+      font-size:.95rem;display:none
+    }
+    .notice.show{display:block}
+    .notice.info{background:#e3f2fd;color:#0d47a1;border:var(--bw) solid #90caf9}
+    .notice.success{background:#e8f5e9;color:#1b5e20;border:var(--bw) solid #81c784}
+    .notice.error{background:#ffebee;color:#c62828;border:var(--bw) solid #ef9a9a}
+    
+    .empty{text-align:center;padding:calc(40px*var(--scale));opacity:.6}
+    
+    .modalMask{
+      position:fixed;inset:0;background:#0008;display:none;
+      align-items:center;justify-content:center;padding:calc(20px*var(--scale));z-index:99999
+    }
+    .modal{
+      background:#fff;border-radius:calc(14px*var(--scale));max-width:calc(600px*var(--scale));
+      width:100%;padding:calc(20px*var(--scale));border:var(--bw) solid var(--line);
+      box-shadow:0 calc(10px*var(--scale)) calc(24px*var(--scale)) #0003;
+      max-height:90vh;overflow-y:auto
+    }
+    .modal h3{margin:0 0 calc(12px*var(--scale));color:var(--primary)}
+    .modal-btns{display:flex;gap:calc(10px*var(--scale));justify-content:flex-end;margin-top:calc(16px*var(--scale))}
+  </style>
+</head>
+<body>
+  <img class="siteBanner" src="https://raw.githubusercontent.com/docudurand/mes-formulaires/main/banniere.png" alt="Bannière Durand Services">
+
+  <div class="wrap">
+    
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('vehicles')">🚗 Véhicules</button>
+      <button class="tab" onclick="showTab('loans')">📋 Tous les prêts</button>
+    </div>
+    
+    <!-- VÉHICULES -->
+    <div id="vehicles" class="tab-content active">
+      <div class="card">
+        <div class="notice" id="vehicle-notice"></div>
+        
+        <h2>Ajouter un véhicule</h2>
+        <form id="add-vehicle-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="vehicle-id">ID Véhicule *</label>
+              <input type="text" id="vehicle-id" required placeholder="VEH001">
+            </div>
+            <div class="form-group">
+              <label for="vehicle-immat">Immatriculation *</label>
+              <input type="text" id="vehicle-immat" required placeholder="AB-123-CD">
+            </div>
+            <div class="form-group">
+              <label for="vehicle-marque">Marque</label>
+              <input type="text" id="vehicle-marque" placeholder="Renault">
+            </div>
+            <div class="form-group">
+              <label for="vehicle-modele">Modèle</label>
+              <input type="text" id="vehicle-modele" placeholder="Kangoo">
+            </div>
+            <div class="form-group">
+              <label for="vehicle-ct">Contrôle technique</label>
+              <input type="date" id="vehicle-ct">
+            </div>
+            <div class="form-group">
+              <label for="vehicle-pollution">Contrôle pollution</label>
+              <input type="date" id="vehicle-pollution">
+            </div>
+          </div>
+          <button type="submit" class="btn">➕ Ajouter le véhicule</button>
+        </form>
+        
+        <h2>Liste des véhicules</h2>
+        <table id="vehicles-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Immatriculation</th>
+              <th>Magasin</th>
+              <th>Marque</th>
+              <th>Modèle</th>
+              <th>CT</th>
+              <th>Pollution</th>
+              <th>Disponible</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- PRÊTS -->
+    <div id="loans" class="tab-content">
+      <div class="card">
+        <h2>Recherche de prêts</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="search-immat">Immatriculation</label>
+            <input type="text" id="search-immat" placeholder="AB-123-CD">
+          </div>
+          <div class="form-group">
+            <label for="search-date">Date</label>
+            <input type="date" id="search-date">
+          </div>
+          <div class="form-group">
+            <label for="search-store">Magasin</label>
+            <select id="search-store">
+              <option value="">Tous</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end">
+            <button class="btn" onclick="searchLoans()">🔍 Rechercher</button>
+          </div>
+        </div>
+        
+        <table id="loans-table">
+          <thead>
+            <tr>
+              <th>Immatriculation</th>
+              <th>Chauffeur</th>
+              <th>Magasin</th>
+              <th>Départ</th>
+              <th>Retour</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal modification véhicule -->
+  <div class="modalMask" id="editVehicleModal">
+    <div class="modal">
+      <h3>✏️ Modifier le véhicule</h3>
+      <div class="notice" id="edit-vehicle-notice"></div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-id">ID Véhicule</label>
+        <input type="text" id="edit-vehicle-id" readonly style="background:#f8f9fa">
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-immat">Immatriculation *</label>
+        <input type="text" id="edit-vehicle-immat" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-marque">Marque</label>
+        <input type="text" id="edit-vehicle-marque">
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-modele">Modèle</label>
+        <input type="text" id="edit-vehicle-modele">
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-ct">Contrôle technique</label>
+        <input type="date" id="edit-vehicle-ct">
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-pollution">Contrôle pollution</label>
+        <input type="date" id="edit-vehicle-pollution">
+      </div>
+      
+      <div class="form-group">
+        <label for="edit-vehicle-disponible">Disponible</label>
+        <select id="edit-vehicle-disponible">
+          <option value="true">Oui</option>
+          <option value="false">Non</option>
+        </select>
+      </div>
+      
+      <div class="modal-btns">
+        <button class="btn-ghost" onclick="closeEditVehicleModal()">Annuler</button>
+        <button class="btn" onclick="saveVehicle()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal confirmation suppression -->
+  <div class="modalMask" id="confirmModal">
+    <div class="modal">
+      <h3>Confirmer la suppression</h3>
+      <p id="confirmText"></p>
+      <div class="modal-btns">
+        <button class="btn-ghost" onclick="closeModal()">Annuler</button>
+        <button class="btn-danger" id="confirmBtn">Supprimer</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = '/pret/api';
+    let currentVehicle = null;
+    
+    // Navigation des onglets
+    function showTab(tabName) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      event.target.classList.add('active');
+      document.getElementById(tabName).classList.add('active');
+      
+      if (tabName === 'vehicles') loadVehicles();
+      if (tabName === 'loans') { loadLoans(); loadStoresFilter(); }
+    }
+    
+    // Messages
+    function showMessage(elementId, message, type = 'info') {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.className = `notice show ${type}`;
+      el.textContent = message;
+      setTimeout(() => el.classList.remove('show'), 5000);
+    }
+    
+    // Formater une date pour affichage
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return '—';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    
+
+    // Formater une date (prêts) au format JJ-MM-AAAA
+    function formatLoanDate(dateStr) {
+      if (!dateStr) return '-';
+      const d = new Date(dateStr);
+      if (isNaN(d)) return '-';
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+
+    // Charger la liste des magasins dans le filtre (onglet prêts)
+    async function loadStoresFilter() {
+      try {
+        const sel = document.getElementById('search-store');
+        if (!sel) return;
+
+        // Ne recharge pas si déjà rempli
+        if (sel.options.length > 1) return;
+
+        const res = await fetch(`${API_BASE}/stores`);
+        const data = await res.json();
+        const stores = (data && data.stores) ? data.stores : [];
+
+        stores.forEach(s => {
+          const name = (s && (s.name || s.magasin || s.value)) ? (s.name || s.magasin || s.value) : '';
+          if (!name) return;
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        });
+      } catch (e) {
+        console.error('Erreur chargement magasins:', e);
+      }
+    }
+
+
+    // Vérifier si une date est expirée
+    function isExpired(dateStr) {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (isNaN(d)) return false;
+      return d < new Date();
+    }
+    
+    // VÉHICULES
+    async function loadVehicles() {
+      try {
+        const res = await fetch(`${API_BASE}/vehicles`);
+        const data = await res.json();
+        
+        const tbody = document.querySelector('#vehicles-table tbody');
+        if (!data.vehicles || data.vehicles.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9" class="empty">Aucun véhicule</td></tr>';
+        } else {
+          tbody.innerHTML = data.vehicles.map(v => {
+            const ctExpired = isExpired(v.ct);
+            const pollutionExpired = isExpired(v.pollution);
+            
+            return `
+            <tr>
+              <td><strong>${v.vehicle_id}</strong></td>
+              <td><strong>${v.immatriculation}</strong></td>
+              <td>${v.magasin_home || '-'}</td>
+              <td>${v.marque || '-'}</td>
+              <td>${v.modele || '-'}</td>
+              <td><span class="pill ${ctExpired ? 'danger' : 'ok'}">${formatDate(v.ct)}</span></td>
+              <td><span class="pill ${pollutionExpired ? 'danger' : 'ok'}">${formatDate(v.pollution)}</span></td>
+              <td><span class="pill ${v.disponible ? 'ok' : 'warn'}">${v.disponible ? 'Oui' : 'Non'}</span></td>
+              <td>
+                <div class="actions">
+                  <button class="btn-light btn-mini" onclick='editVehicle(${JSON.stringify(v)})'>✏️ Modifier</button>
+                  <button class="btn-danger btn-mini" onclick="deleteVehicle('${v.vehicle_id}')">🗑️</button>
+                </div>
+              </td>
+            </tr>
+          `}).join('');
+        }
+      } catch (error) {
+        console.error('Erreur véhicules:', error);
+      }
+    }
+    
+    function editVehicle(vehicle) {
+      currentVehicle = vehicle;
+      document.getElementById('edit-vehicle-id').value = vehicle.vehicle_id;
+      document.getElementById('edit-vehicle-immat').value = vehicle.immatriculation;
+      document.getElementById('edit-vehicle-marque').value = vehicle.marque || '';
+      document.getElementById('edit-vehicle-modele').value = vehicle.modele || '';
+      document.getElementById('edit-vehicle-ct').value = vehicle.ct || '';
+      document.getElementById('edit-vehicle-pollution').value = vehicle.pollution || '';
+      document.getElementById('edit-vehicle-disponible').value = vehicle.disponible ? 'true' : 'false';
+      document.getElementById('editVehicleModal').style.display = 'flex';
+    }
+    
+    function closeEditVehicleModal() {
+      document.getElementById('editVehicleModal').style.display = 'none';
+      document.getElementById('edit-vehicle-notice').classList.remove('show');
+      currentVehicle = null;
+    }
+    
+    async function saveVehicle() {
+  if (!currentVehicle) return;
+
+  const payload = {
+    immatriculation: document.getElementById('edit-vehicle-immat').value.trim(),
+    marque: document.getElementById('edit-vehicle-marque').value.trim(),
+    modele: document.getElementById('edit-vehicle-modele').value.trim(),
+    ct: document.getElementById('edit-vehicle-ct').value || '',
+    pollution: document.getElementById('edit-vehicle-pollution').value || '',
+    disponible: document.getElementById('edit-vehicle-disponible').value === 'true'
+  };
+
+  try {
+    const res = await fetch(`${API_BASE}/vehicles/${encodeURIComponent(currentVehicle.vehicle_id)}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      const msg = data?.detail ? `${data.error || res.status} — ${data.detail}` : (data.error || res.status);
+      showMessage('edit-vehicle-notice', `Erreur mise à jour: ${msg}`, 'error');
+      return;
+    }
+
+    showMessage('vehicle-notice', `Véhicule ${currentVehicle.vehicle_id} mis à jour ✅`, 'success');
+
+    closeEditVehicleModal();
+    await loadVehicles();
+  } catch (e) {
+    showMessage('edit-vehicle-notice', `Erreur réseau: ${e.message}`, 'error');
+  }
+}
+
+    document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      showMessage('vehicle-notice', 'Fonctionnalité en cours de développement - Ajout manuel via le fichier JSON', 'info');
+    });
+    
+    // PRÊTS
+    async function loadLoans() {
+      await searchLoans();
+    }
+    
+    async function searchLoans() {
+      try {
+        const immat = document.getElementById('search-immat').value;
+        const date = document.getElementById('search-date').value;
+        const store = (document.getElementById('search-store') || {}).value || '';
+        const params = new URLSearchParams();
+        if (immat) params.set('immat', immat);
+        if (date) params.set('date', date);
+        
+        const res = await fetch(`${API_BASE}/loans/search?${params}`);
+        let loans = await res.json();
+
+        // Tri du plus récent au plus ancien (updated_at -> closed_at -> created_at -> date_depart)
+        const getTs = (loan) => {
+          const v = loan.updated_at || loan.closed_at || loan.created_at || loan.date_depart || '';
+          const t = Date.parse(v);
+          return Number.isFinite(t) ? t : 0;
+        };
+        loans = (Array.isArray(loans) ? loans : []).sort((a, b) => getTs(b) - getTs(a));
+
+        // Filtre visuel par magasin
+        if (store) {
+          loans = (Array.isArray(loans) ? loans : []).filter(l => String(l.magasin_pret || '').toUpperCase() === String(store).toUpperCase());
+        }
+
+        const tbody = document.querySelector('#loans-table tbody');
+        if (loans.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun prêt trouvé</td></tr>';
+        } else {
+          tbody.innerHTML = loans.map(loan => `
+            <tr>
+              <td><strong>${loan.immatriculation || '-'}</strong></td>
+              <td>${loan.chauffeur_nom || '-'}</td>
+              <td>${loan.magasin_pret || '-'}</td>
+              <td>${formatLoanDate(loan.date_depart)}<br><small>${loan.heure_depart || ''}</small></td>
+              <td>${formatLoanDate(loan.date_retour)}<br><small>${loan.heure_retour || ''}</small></td>
+              <td><span class="pill ${loan.status === 'en cours' ? 'warn' : 'ok'}">${loan.status}</span></td>
+              <td>
+                <div class="actions">
+                  <button class="btn-light btn-mini" onclick="window.location.href='admin-pret-modif.html?loan_id=${loan.loan_id}'">✏️ Modifier</button>
+                  ${loan.status === 'en cours' ? `<button class="btn btn-mini" onclick="window.open('close.html?loan_id=${loan.loan_id}', '_blank')">✓ Clôturer</button>` : ''}
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Erreur prêts:', error);
+      }
+    }
+    
+    // Modal confirmation
+    function closeModal() {
+      document.getElementById('confirmModal').style.display = 'none';
+    }
+    
+    function deleteVehicle(id) {
+      document.getElementById('confirmText').textContent = `Supprimer le véhicule ${id} ? Cette action est irréversible.`;
+      document.getElementById('confirmModal').style.display = 'flex';
+      document.getElementById('confirmBtn').onclick = () => {
+        showMessage('vehicle-notice', 'Fonctionnalité en cours de développement - Suppression manuelle via le fichier JSON', 'info');
+        closeModal();
+      };
+    }
+    
+    // Charger les véhicules au démarrage
+    loadVehicles();
+  </script>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<!--admin pret vehicule - page modification-->
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Modifier le prêt – Admin véhicules</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --primary:#004080; --ink:#073763; --line:#e5e7eb; --scale:1.2; --bw:calc(1px*var(--scale)); }
+    *{box-sizing:border-box} html{font-size:calc(100%*var(--scale));}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:#fff}
+
+    .siteBanner{width:100%;height:auto;display:block}
+
+    .wrap{max-width:calc(900px*var(--scale));margin:calc(24px*var(--scale)) auto;padding:calc(16px*var(--scale))}
+    
+    .card{
+      background:#fff;border:var(--bw) solid var(--line);border-radius:calc(14px*var(--scale));
+      padding:calc(20px*var(--scale));margin-top:calc(16px*var(--scale));
+      box-shadow:0 calc(2px*var(--scale)) calc(8px*var(--scale)) #0001
+    }
+    
+    h1{font-size:1.6rem;margin:0 0 calc(6px*var(--scale));text-align:center;color:var(--primary)}
+    .sub{opacity:.8;text-align:center;margin-bottom:calc(18px*var(--scale))}
+    
+    .header-info{
+      background:#f8fbff;border:var(--bw) solid #d6e6ff;border-radius:calc(10px*var(--scale));
+      padding:calc(12px*var(--scale));margin-bottom:calc(20px*var(--scale))
+    }
+    .header-info strong{color:var(--primary)}
+    
+    .row{display:grid;gap:calc(12px*var(--scale))}
+    @media(min-width:680px){ 
+      .row.cols-2{grid-template-columns:1fr 1fr} 
+      .row.cols-3{grid-template-columns:1fr 1fr 1fr}
+    }
+    
+    label{display:block;font-weight:600;margin-bottom:calc(6px*var(--scale));color:var(--ink)}
+    input,select,textarea{
+      width:100%;padding:calc(10px*var(--scale)) calc(12px*var(--scale));
+      border:var(--bw) solid var(--line);border-radius:calc(10px*var(--scale));
+      font-size:1rem;font-family:inherit
+    }
+    input:focus,select:focus,textarea:focus{
+      outline:none;border-color:var(--primary);
+      box-shadow:0 0 0 calc(2px*var(--scale)) rgba(0,64,128,0.1)
+    }
+    textarea{min-height:calc(84px*var(--scale));resize:vertical}
+    
+    .field-group{margin-bottom:calc(16px*var(--scale))}
+    
+    button{
+      border:0;border-radius:calc(10px*var(--scale));
+      padding:calc(12px*var(--scale)) calc(18px*var(--scale));
+      font-weight:700;cursor:pointer;font-size:1rem;
+      transition:all 0.2s
+    }
+    .btn{background:var(--primary);color:#fff}
+    .btn:hover{background:#003366;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,64,128,0.3)}
+    .btn-light{background:#eef5ff;color:#004080;border:var(--bw) solid #d6e6ff}
+    .btn-light:hover{background:#d6e6ff}
+    .btn-ghost{background:#fff;color:#073763;border:var(--bw) solid var(--line)}
+    .btn-ghost:hover{background:#f8f9fa}
+    button[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+    
+    .btns{display:flex;gap:calc(10px*var(--scale));justify-content:flex-end;margin-top:calc(20px*var(--scale))}
+    
+    .pill{
+      display:inline-flex;align-items:center;justify-content:center;
+      padding:calc(4px*var(--scale)) calc(10px*var(--scale));
+      border-radius:999px;border:var(--bw) solid var(--line);
+      font-size:.9rem;font-weight:600
+    }
+    .ok{background:#f2faf4;color:#2e7d32;border-color:#b7e3c3}
+    .warn{background:#fff8e1;color:#8a6d00;border-color:#ffe082}
+    
+    .notice{
+      margin-top:calc(14px*var(--scale));padding:calc(10px*var(--scale)) calc(14px*var(--scale));
+      border-radius:calc(10px*var(--scale));font-size:.95rem
+    }
+    .notice.info{background:#e3f2fd;color:#0d47a1;border:var(--bw) solid #90caf9}
+    .notice.success{background:#e8f5e9;color:#1b5e20;border:var(--bw) solid #81c784}
+    .notice.error{background:#ffebee;color:#c62828;border:var(--bw) solid #ef9a9a}
+    
+    .back-link{
+      display:inline-flex;align-items:center;gap:calc(6px*var(--scale));
+      color:var(--primary);text-decoration:none;font-weight:600;margin-bottom:calc(12px*var(--scale))
+    }
+    .back-link:hover{text-decoration:underline}
+    
+    .invalid{border-color:#c62828 !important;box-shadow:0 0 0 calc(2px*var(--scale)) rgba(198,40,40,0.1) !important}
+    
+    .section-title{
+      font-size:1.1rem;font-weight:700;color:var(--primary);
+      margin:calc(20px*var(--scale)) 0 calc(12px*var(--scale));
+      padding-bottom:calc(8px*var(--scale));
+      border-bottom:calc(2px*var(--scale)) solid var(--line)
+    }
+  </style>
+</head>
+<body>
+  <img class="siteBanner" src="https://raw.githubusercontent.com/docudurand/mes-formulaires/main/banniere.png" alt="Bannière Durand Services">
+
+  <div class="wrap">
+    <a href="admin-parc.html" class="back-link">
+      <span>←</span> Retour à la liste
+    </a>
+
+    <h1>Modifier le prêt</h1>
+    <div class="sub">Modification des informations du prêt véhicule</div>
+
+    <div class="card">
+      <div class="header-info" id="headerInfo">
+        <strong>Chargement...</strong>
+      </div>
+
+      <div class="section-title">📋 Informations du prêt</div>
+
+      <div class="row cols-2">
+        <div class="field-group">
+          <label for="magasinPret">Magasin prêt</label>
+          <input id="magasinPret" type="text" readonly style="background:#f8f9fa">
+        </div>
+        <div class="field-group">
+          <label for="immatriculation">Immatriculation</label>
+          <input id="immatriculation" type="text" readonly style="background:#f8f9fa">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="chauffeurNom">Nom du chauffeur *</label>
+        <input id="chauffeurNom" type="text" placeholder="Nom du chauffeur" required>
+      </div>
+
+      <div class="row cols-3">
+        <div class="field-group">
+          <label for="dateDepart">Date départ *</label>
+          <input id="dateDepart" type="date" required>
+        </div>
+        <div class="field-group">
+          <label for="heureDepart">Heure départ *</label>
+          <input id="heureDepart" type="time" required>
+        </div>
+        <div class="field-group">
+          <label for="receptionnaireDepart">Réceptionnaire (départ) *</label>
+          <input id="receptionnaireDepart" type="text" placeholder="Nom" required>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="transfertAssurance">Transfert assurance *</label>
+        <select id="transfertAssurance" required>
+          <option value="">— Sélectionnez —</option>
+          <option value="Oui">Oui</option>
+          <option value="Non">Non</option>
+        </select>
+      </div>
+
+      <div class="section-title">📅 Retour (si clôturé)</div>
+
+      <div class="row cols-3">
+        <div class="field-group">
+          <label for="dateRetour">Date retour</label>
+          <input id="dateRetour" type="date">
+        </div>
+        <div class="field-group">
+          <label for="heureRetour">Heure retour</label>
+          <input id="heureRetour" type="time">
+        </div>
+        <div class="field-group">
+          <label for="receptionnaireRetour">Réceptionnaire (retour)</label>
+          <input id="receptionnaireRetour" type="text" placeholder="Nom">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="statut">Statut</label>
+        <select id="statut">
+          <option value="en cours">En cours</option>
+          <option value="clôturé">Clôturé</option>
+        </select>
+      </div>
+
+      <div class="section-title">💬 Informations complémentaires</div>
+
+      <div class="field-group">
+        <label for="observations">Information chauffeur</label>
+        <textarea id="observations" placeholder="Observations, consignes..."></textarea>
+      </div>
+
+      <div class="notice info" id="notice" style="display:none"></div>
+
+      <div class="btns">
+        <button class="btn-ghost" type="button" onclick="window.location.href='admin-parc.html'">Annuler</button>
+        <button class="btn" type="button" id="btnSave">Enregistrer les modifications</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BASE_URL = '/pret/api';
+    const params = new URLSearchParams(location.search);
+    const loanId = params.get('loan_id') || '';
+
+    const el = id => document.getElementById(id);
+    const $notice = el('notice');
+    const $headerInfo = el('headerInfo');
+    const $btnSave = el('btnSave');
+
+    let currentLoan = null;
+
+    function showNotice(msg, type = 'info') {
+      $notice.style.display = 'block';
+      $notice.className = `notice ${type}`;
+      $notice.textContent = msg;
+    }
+
+    function hideNotice() {
+      $notice.style.display = 'none';
+    }
+
+    const pad2 = n => String(n).padStart(2, '0');
+    
+    function parseDate(v) {
+      if (!v) return null;
+      if (v instanceof Date) return isNaN(v) ? null : v;
+      if (typeof v === 'number') {
+        const ms = Math.round((v - 25569) * 86400 * 1000);
+        const d = new Date(ms);
+        return isNaN(d) ? null : d;
+      }
+      if (typeof v === 'string') {
+        const d = new Date(v);
+        return isNaN(d) ? null : d;
+      }
+      return null;
+    }
+
+    function formatDateInput(v) {
+      const d = parseDate(v);
+      if (!d) return '';
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    }
+
+    function formatTimeInput(v) {
+      if (!v) return '';
+      if (typeof v === 'string' && /^\d{1,2}:\d{2}/.test(v)) {
+        return v.slice(0, 5);
+      }
+      const d = parseDate(v);
+      if (!d) return '';
+      return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    }
+
+    function formatDateDisplay(v) {
+      const d = parseDate(v);
+      if (!d) return '—';
+      return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+    }
+
+    async function loadLoan() {
+      if (!loanId) {
+        showNotice('Aucun ID de prêt fourni. Retournez à la liste.', 'error');
+        $btnSave.disabled = true;
+        return;
+      }
+
+      try {
+        // Rechercher le prêt par son ID
+        const loans = await fetch(`${BASE_URL}/loans/search`).then(r => r.json());
+        currentLoan = loans.find(l => l.loan_id === loanId);
+
+        if (!currentLoan) {
+          showNotice('Prêt introuvable. Il a peut-être été supprimé.', 'error');
+          $btnSave.disabled = true;
+          return;
+        }
+
+        // Remplir le header
+        $headerInfo.innerHTML = `
+          <strong>Prêt #${currentLoan.loan_id.substring(0, 12)}...</strong> • 
+          ${currentLoan.immatriculation} • 
+          <span class="pill ${currentLoan.status === 'en cours' ? 'warn' : 'ok'}">${currentLoan.status}</span>
+        `;
+
+        // Remplir les champs
+        el('magasinPret').value = currentLoan.magasin_pret || '';
+        el('immatriculation').value = currentLoan.immatriculation || '';
+        el('chauffeurNom').value = currentLoan.chauffeur_nom || '';
+        el('dateDepart').value = formatDateInput(currentLoan.date_depart);
+        el('heureDepart').value = formatTimeInput(currentLoan.heure_depart);
+        el('receptionnaireDepart').value = currentLoan.receptionnaire_depart || '';
+        el('transfertAssurance').value = currentLoan.transfert_assurance || '';
+        el('dateRetour').value = formatDateInput(currentLoan.date_retour);
+        el('heureRetour').value = formatTimeInput(currentLoan.heure_retour);
+        el('receptionnaireRetour').value = currentLoan.receptionnaire_retour || '';
+        el('statut').value = currentLoan.status || 'en cours';
+        el('observations').value = currentLoan.observations || '';
+
+      } catch (error) {
+        console.error('Erreur chargement:', error);
+        showNotice('Erreur lors du chargement du prêt : ' + error.message, 'error');
+        $btnSave.disabled = true;
+      }
+    }
+
+    function validateForm() {
+      const required = ['chauffeurNom', 'dateDepart', 'heureDepart', 'receptionnaireDepart', 'transfertAssurance'];
+      let isValid = true;
+
+      required.forEach(id => {
+        const field = el(id);
+        const val = (field.value || '').trim();
+        if (!val) {
+          field.classList.add('invalid');
+          isValid = false;
+        } else {
+          field.classList.remove('invalid');
+        }
+      });
+
+      if (!isValid) {
+        showNotice('Veuillez remplir tous les champs obligatoires (*)', 'error');
+      }
+
+      return isValid;
+    }
+
+    async function saveLoan() {
+      hideNotice();
+      
+      if (!validateForm()) return;
+
+      try {
+        $btnSave.disabled = true;
+        $btnSave.textContent = 'Enregistrement...';
+
+        const payload = {
+          chauffeur_nom: el('chauffeurNom').value.trim(),
+          date_depart: el('dateDepart').value,
+          heure_depart: el('heureDepart').value,
+          receptionnaire_depart: el('receptionnaireDepart').value.trim(),
+          transfert_assurance: el('transfertAssurance').value,
+          date_retour: el('dateRetour').value || '',
+          heure_retour: el('heureRetour').value || '',
+          receptionnaire_retour: el('receptionnaireRetour').value.trim(),
+          observations: el('observations').value.trim(),
+          status: el('statut').value
+        };
+
+        const response = await fetch(`${BASE_URL}/loans/${loanId}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!result.ok) {
+          throw new Error(result.error || 'Erreur lors de la sauvegarde');
+        }
+
+        showNotice('✓ Modifications enregistrées avec succès !', 'success');
+        
+        setTimeout(() => {
+          window.location.href = 'admin-parc.html';
+        }, 1500);
+
+      } catch (error) {
+        console.error('Erreur sauvegarde:', error);
+        showNotice('Erreur : ' + error.message, 'error');
+        $btnSave.disabled = false;
+        $btnSave.textContent = 'Enregistrer les modifications';
+      }
+    }
+
+    $btnSave.addEventListener('click', saveLoan);
+
+    // Validation en temps réel
+    ['chauffeurNom', 'dateDepart', 'heureDepart', 'receptionnaireDepart', 'transfertAssurance'].forEach(id => {
+      const field = el(id);
+      field?.addEventListener('input', () => {
+        if ((field.value || '').trim()) {
+          field.classList.remove('invalid');
+        }
+      });
+      field?.addEventListener('change', () => {
+        if ((field.value || '').trim()) {
+          field.classList.remove('invalid');
+        }
+      });
+    });
+
+    // Charger le prêt au démarrage
+    loadLoan();
+  </script>
+</body>
+</html>
