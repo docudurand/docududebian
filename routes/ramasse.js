@@ -47,13 +47,33 @@ const RAMASSE_SECRET =
   "change-me";
 
 // Emplacements possibles des JSON
+//
+// Les listes des fournisseurs et des magasins peuvent être définies de plusieurs manières :
+//  1. Via la variable d'environnement FOURNISSEUR_JSON, qui prend le dessus lorsque
+//     loadFournisseurs() est appelée (voir ENV_FOURNISSEURS plus bas).
+//  2. En déposant un fichier `fournisseur.json` et/ou `magasins.json` dans ce même dossier
+//     ou à la racine du projet. Ces fichiers doivent contenir respectivement un tableau
+//     d'objets fournisseurs et une liste de magasins.
+//  3. En plaçant ces fichiers dans le dossier défini par la variable d'environnement
+//     FTP_BACKUP_FOLDER. Cela permet par exemple de monter un volume FTP comme
+//     dossier local (par exemple `/Disque 1/service`) et d'y stocker les données
+//     partagées. Si FTP_BACKUP_FOLDER n'est pas défini, cette option est ignorée.
 const FOURNISSEUR_PATHS = [
+  // Fichier local dans le même dossier que ce module
   path.resolve(__dirname, "fournisseur.json"),
+  // Fichier local à la racine du projet
   path.resolve(__dirname, "../fournisseur.json"),
+  // Fichier externe dans le dossier de sauvegarde FTP
+  ...(process.env.FTP_BACKUP_FOLDER
+    ? [path.join(process.env.FTP_BACKUP_FOLDER, "fournisseur.json")]
+    : []),
 ];
 const MAGASINS_PATHS = [
   path.resolve(__dirname, "magasins.json"),
   path.resolve(__dirname, "../magasins.json"),
+  ...(process.env.FTP_BACKUP_FOLDER
+    ? [path.join(process.env.FTP_BACKUP_FOLDER, "magasins.json")]
+    : []),
 ];
 
 // Dedoublonnage des envois
@@ -196,7 +216,7 @@ function uniqEmails(arr) {
 
 // HTML non exécuté
 function esc(t = "") {
-  return String(t).replace(/[&<>"']/g, c =>
+  return String(t).replace(/[&<>"]/'/g, c =>
     ({
       "&": "&amp;",
       "<": "&lt;",
