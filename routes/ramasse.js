@@ -39,13 +39,28 @@ function parseCsv(value) {
 const UPLOAD_ALLOWED_MIME = parseCsv(process.env.RAMASSE_UPLOAD_ALLOWED_MIME);
 const UPLOAD_ALLOWED_EXT = parseCsv(process.env.RAMASSE_UPLOAD_ALLOWED_EXT);
 
+// secret pour signer les liens d'accuse
+const RAMASSE_SECRET =
+  process.env.RAMASSE_SECRET ||
+  process.env.PRESENCES_LEAVES_PASSWORD ||
+  process.env.LEAVES_PASS ||
+  "change-me";
 
-// -----------------------------------------------------------------------------
-// Dé-doublonnage des envois (évite double clic / refresh)
-// -----------------------------------------------------------------------------
+// Emplacements possibles des JSON
+const FOURNISSEUR_PATHS = [
+  path.resolve(__dirname, "fournisseur.json"),
+  path.resolve(__dirname, "../fournisseur.json"),
+];
+const MAGASINS_PATHS = [
+  path.resolve(__dirname, "magasins.json"),
+  path.resolve(__dirname, "../magasins.json"),
+];
+
+// Dedoublonnage des envois
 const RECENT_POST_RAMASSE = new Map();
 const RAMASSE_DEDUP_WINDOW_MS = 120_000;
 
+// Verifie si la requete est un doublon recent
 function isDuplicateRamasse(requestId) {
   const id = String(requestId || "").trim();
   if (!id) return false;
@@ -62,14 +77,12 @@ function isDuplicateRamasse(requestId) {
   return false;
 }
 
-// -----------------------------------------------------------------------------
-// Gestion upload fichier (pièce jointe)
-// -----------------------------------------------------------------------------
+// Gestion upload fichier (piece jointe)
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TMP_DIR),
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || ".bin";
+      const ext  = path.extname(file.originalname) || ".bin";
       const base = path
         .basename(file.originalname, ext)
         .replace(/[^a-z0-9-_]+/gi, "_");
@@ -77,17 +90,13 @@ const upload = multer({
     },
   }),
   fileFilter: (req, file, cb) => {
-    // si pas de filtres => on accepte tout
     if (!UPLOAD_ALLOWED_MIME.length && !UPLOAD_ALLOWED_EXT.length) {
       return cb(null, true);
     }
     const mimeType = String(file.mimetype || "").toLowerCase();
     const ext = path.extname(file.originalname || "").toLowerCase();
-    const okMime =
-      !UPLOAD_ALLOWED_MIME.length || UPLOAD_ALLOWED_MIME.includes(mimeType);
-    const okExt =
-      !UPLOAD_ALLOWED_EXT.length || (ext && UPLOAD_ALLOWED_EXT.includes(ext));
-
+    const okMime = !UPLOAD_ALLOWED_MIME.length || UPLOAD_ALLOWED_MIME.includes(mimeType);
+    const okExt = !UPLOAD_ALLOWED_EXT.length || (ext && UPLOAD_ALLOWED_EXT.includes(ext));
     if (!okMime || !okExt) {
       req.fileValidationError = "file_type_not_allowed";
       return cb(null, false);
@@ -97,208 +106,72 @@ const upload = multer({
   limits: { fileSize: 24 * 1024 * 1024 },
 });
 
-// secret pour signer les liens d'accuse
-const RAMASSE_SECRET =
-  process.env.RAMASSE_SECRET ||
-  process.env.PRESENCES_LEAVES_PASSWORD ||
-  process.env.LEAVES_PASS ||
-  "change-me";
-
-
-
-// -----------------------------------------------------------------------------
-// Chargement fournisseurs / magasins
-// Objectif : ne plus utiliser FOURNISSEUR_JSON.
-// Sur Render, FTP_BACKUP_FOLDER est un CHEMIN DISTANT (sur le FTP), pas un chemin local.
-// Donc on télécharge fournisseur.json depuis le FTP, on le met en cache en mémoire.
-// -----------------------------------------------------------------------------
-
-// Fichiers locaux possibles (fallback si FTP indisponible)
-const LOCAL_FOURNISSEUR_PATHS = [
-  path.resolve(__dirname, "fournisseur.json"),
-  path.resolve(__dirname, "../fournisseur.json"),
-];
-const LOCAL_MAGASINS_PATHS = [
-  path.resolve(__dirname, "magasins.json"),
-  path.resolve(__dirname, "../magasins.json"),
-];
-
-// Chemins DISTANTS sur le FTP (dans FTP_BACKUP_FOLDER)
-function ftpRootFolder() {
-  const v = process.env.FTP_BACKUP_FOLDER;
-  if (!v) return null;
-  // ex: "/Disque 1/service" (Render accepte les espaces dans les variables)
-  return String(v).replace(/\/$/, "");
-}
-
-function ftpRemotePath(filename) {
-  const root = ftpRootFolder();
-  if (!root) return null;
-  return `${root}/${filename}`.replace(/\/+/g, "/");
-}
-
-// Cache mémoire
-let _FOURNISSEURS_CACHE = { ts: 0, data: null };
-let _MAGASINS_CACHE     = { ts: 0, data: null };
-const JSON_CACHE_TTL_MS = Number(process.env.RAMASSE_JSON_CACHE_TTL_MS || 60_000);
-
-// Lecture fichier local JSON
-function readLocalJson(paths, fallback) {
+// Charge un JSON depuis une liste de chemins
+function loadJsonFrom(paths, fallback) {
   for (const p of paths) {
     try {
       if (fs.existsSync(p)) {
         const raw = fs.readFileSync(p, "utf8");
         return JSON.parse(raw);
       }
-    } catch (e) {
-      console.warn("[RAMASSE] JSON local invalide:", p, e && e.message ? e.message : e);
+    } catch {
     }
   }
   return fallback;
 }
 
-// Téléchargement FTP d'un JSON (retourne parsed JSON ou fallback)
-
-
-async function readFtpJson(remotePath, fallback) {
-  if (!remotePath) return fallback;
-  if (!process.env.FTP_HOST || !process.env.FTP_USER) return fallback;
-
-  const tmpName = `ftp_json_${Date.now()}_${Math.random().toString(16).slice(2)}.json`;
-  const tmpFile = path.join(TMP_DIR, tmpName);
-
-  const timeoutMs = Number(process.env.FTP_TIMEOUT_MS || 25_000);
-  const secureEnv = String(process.env.FTP_SECURE || "false").toLowerCase();
-  const wantSecure = secureEnv === "true" ? true : (secureEnv === "implicit" ? "implicit" : false);
-
-  // Si FTP_TLS_INSECURE=1 ou FTP_TLS_REJECT_UNAUTH=0 => on n'exige pas un certificat valide
-  const rejectUnauthorized =
-    String(process.env.FTP_TLS_REJECT_UNAUTH || "1") !== "0" &&
-    String(process.env.FTP_TLS_INSECURE || "0") !== "1";
-
-  async function attemptDownload(secureMode) {
-    const client = new ftp.Client(timeoutMs);
-    client.ftp.verbose = false;
+// Fournisseurs definis en variable d'env (optionnel)
+let ENV_FOURNISSEURS;
+(() => {
+  const raw = process.env.FOURNISSEUR_JSON;
+  if (raw) {
     try {
-      await client.access({
-        host: process.env.FTP_HOST,
-        port: Number(process.env.FTP_PORT || 21),
-        user: process.env.FTP_USER,
-        password: process.env.FTP_PASSWORD,
-        secure: secureMode,
-        secureOptions: { rejectUnauthorized },
-      });
-
-      // Certains serveurs n'aiment pas le "/" initial : retry sans le leading slash si 550.
-      try {
-        await client.downloadTo(tmpFile, remotePath);
-      } catch (e) {
-        const msg = String(e?.message || e);
-        if (msg.includes("550") && String(remotePath).startsWith("/")) {
-          await client.downloadTo(tmpFile, String(remotePath).replace(/^\/+/, ""));
-        } else {
-          throw e;
-        }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        ENV_FOURNISSEURS = parsed;
+        console.log("[CONF] Liste des fournisseurs chargée via l'env FOURNISSEUR_JSON (" + parsed.length + ")");
       }
-
-      const raw = fs.readFileSync(tmpFile, "utf8");
-      return JSON.parse(raw);
-    } finally {
-      try { client.close(); } catch {}
+    } catch (err) {
+      console.warn("[CONF] Impossible de parser FOURNISSEUR_JSON :", err && err.message ? err.message : err);
     }
   }
+})();
 
-  // Retry simple (réseau/Freebox peut reset le data socket)
-  const maxTries = Number(process.env.FTP_RETRIES || 3);
-
-  try {
-    for (let i = 1; i <= maxTries; i++) {
-      try {
-        const data = await attemptDownload(wantSecure);
-        return data;
-      } catch (e) {
-        const msg = String(e?.message || e);
-        const isConnReset = msg.includes("ECONNRESET") || msg.toLowerCase().includes("data socket");
-        console.warn(`[RAMASSE] FTP tentative ${i}/${maxTries} échouée:`, msg);
-
-        // Si FTPS fait reset, on tente UNE fois en FTP simple (beaucoup de Freebox/FTPS font ça selon config)
-        if (isConnReset && wantSecure) {
-          try {
-            console.warn("[RAMASSE] Retry en FTP simple (secure=false) suite à ECONNRESET...");
-            const data = await attemptDownload(false);
-            return data;
-          } catch (e2) {
-            console.warn("[RAMASSE] Retry FTP simple échoué:", String(e2?.message || e2));
-          }
-        }
-
-        if (i < maxTries) {
-          await new Promise(r => setTimeout(r, 400 * i));
-          continue;
-        }
-        throw e;
-      }
-    }
-    return fallback;
-  } catch (e) {
-    console.warn("[RAMASSE] FTP JSON indisponible:", remotePath, e && e.message ? e.message : e);
-    return fallback;
-  } finally {
-    try { fs.unlinkSync(tmpFile); } catch {}
+// Liste des fournisseurs (env ou fichier)
+function loadFournisseurs() {
+  if (Array.isArray(ENV_FOURNISSEURS)) {
+    return ENV_FOURNISSEURS;
   }
+  const arr = loadJsonFrom(FOURNISSEUR_PATHS, []);
+  return Array.isArray(arr) ? arr : [];
 }
 
-async function getFournisseurs() {
-  const now = Date.now();
-  if (_FOURNISSEURS_CACHE.data && (now - _FOURNISSEURS_CACHE.ts) < JSON_CACHE_TTL_MS) {
-    return _FOURNISSEURS_CACHE.data;
+// Liste des magasins deduite des fournisseurs
+function loadMagasins() {
+  const data = loadJsonFrom(MAGASINS_PATHS, []);
+  if (Array.isArray(data) && data.length) {
+    return Array.from(
+      new Set(
+        data
+          .map(x => (typeof x === "string" ? x : (x?.name || "")))
+          .filter(Boolean)
+      )
+    );
   }
-
-  const remote = ftpRemotePath("fournisseur.json");
-  let data = await readFtpJson(remote, null);
-
-  if (!data) data = readLocalJson(LOCAL_FOURNISSEUR_PATHS, []);
-  if (!Array.isArray(data)) data = [];
-
-  _FOURNISSEURS_CACHE = { ts: now, data };
-
-  console.log("[RAMASSE] Fournisseurs chargés:", data.length, "source=", remote ? "ftp" : "local");
-  return data;
+  const set = new Set();
+  for (const f of loadFournisseurs()) {
+    if (f.magasin) set.add(String(f.magasin));
+  }
+  return Array.from(set);
 }
 
-async function getMagasins() {
-  const now = Date.now();
-  if (_MAGASINS_CACHE.data && (now - _MAGASINS_CACHE.ts) < JSON_CACHE_TTL_MS) {
-    return _MAGASINS_CACHE.data;
-  }
-
-  const remote = ftpRemotePath("magasins.json");
-  let data = await readFtpJson(remote, null);
-
-  if (!data) data = readLocalJson(LOCAL_MAGASINS_PATHS, null);
-
-  if (!data) {
-    const fournisseurs = await getFournisseurs();
-    data = Array.from(new Set(fournisseurs.map(f => (f?.magasin ? String(f.magasin) : "")).filter(Boolean)));
-  } else if (Array.isArray(data)) {
-    data = Array.from(new Set(data.map(x => (typeof x === "string" ? x : (x?.name || ""))).map(String).map(s => s.trim()).filter(Boolean)));
-  } else {
-    data = [];
-  }
-
-  _MAGASINS_CACHE = { ts: now, data };
-  return data;
-}
-
-async function findFournisseur(name) {
-  const list = await getFournisseurs();
+// Recherche un fournisseur par nom
+function findFournisseur(name) {
+  const list = loadFournisseurs();
   const n = String(name || "").trim().toLowerCase();
-  return list.find(s => String(s?.name || "").trim().toLowerCase() === n);
-}
-
-function invalidateJsonCache() {
-  _FOURNISSEURS_CACHE.ts = 0;
-  _MAGASINS_CACHE.ts = 0;
+  return list.find(
+    s => String(s.name || "").trim().toLowerCase() === n
+  );
 }
 
 // Validation email simple
@@ -323,7 +196,7 @@ function uniqEmails(arr) {
 
 // HTML non exécuté
 function esc(t = "") {
-  return String(t).replace(/[&<>"\']/g, c =>
+  return String(t).replace(/[&<>"']/g, c =>
     ({
       "&": "&amp;",
       "<": "&lt;",
@@ -638,30 +511,16 @@ function shouldSendAckOnce(sig) {
 }
 
 // API: liste fournisseurs (pour le formulaire)
-router.get("/fournisseurs", async (_req, res) => {
-  res.set("Cache-Control", "no-store, max-age=0");
-  res.set("Pragma", "no-cache");
-  res.set("Expires", "0");
-  const out = (await getFournisseurs()).map(({ name, magasin, infoLivreur }) => ({ name, magasin, infoLivreur }));
+router.get("/fournisseurs", (_req, res) => {
+  const out = loadFournisseurs().map(
+    ({ name, magasin, infoLivreur }) => ({ name, magasin, infoLivreur })
+  );
   res.json(out);
 });
-// API: liste magasins (pour le formulaire)
-router.get("/magasins", async (_req, res) => {
-  res.set("Cache-Control", "no-store, max-age=0");
-  res.set("Pragma", "no-cache");
-  res.set("Expires", "0");
-  res.json(await getMagasins());
-});
 
-// API: reload JSON (force la relecture depuis le FTP / fichiers)
-router.post("/reload", (req, res) => {
-  const token = process.env.RAMASSE_RELOAD_TOKEN;
-  if (token) {
-    const got = String(req.get("x-reload-token") || "");
-    if (got !== token) return res.status(403).json({ ok: false, error: "forbidden" });
-  }
-  invalidateJsonCache();
-  res.json({ ok: true });
+// API: liste magasins (pour le formulaire)
+router.get("/magasins", (_req, res) => {
+  res.json(loadMagasins());
 });
 
 // API: stats ramasse
@@ -714,7 +573,7 @@ router.post("/", upload.single("file"), async (req, res) => {
       });
     }
 
-    const four = await findFournisseur(fournisseur);
+    const four = findFournisseur(fournisseur);
     if (!four) {
       return res
         .status(400)
