@@ -625,7 +625,7 @@
     }
 
     const base = location.origin.replace(/\/$/,"");
-    const validationUrl = `${base}/atelier/validation.html?no=${encodeURIComponent(no)}`;
+    const validationUrl = `${base}/atelier/public/validation.html?no=${encodeURIComponent(no)}`;
     LAST_VALIDATION_URL = validationUrl;
 
     const payloadForPrint = { ...payload, no };
