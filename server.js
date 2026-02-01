@@ -79,7 +79,7 @@ function isAllowedOrigin(origin) {
   if (/^https:\/\/[^\/]+\.wix\.com$/i.test(o)) return true;
   if (/^https:\/\/[^\/]+\.editorx\.io$/i.test(o)) return true;
 
-  if (/^http:\/\/192\.168\.1\.40(?::\d+)?$/i.test(o)) return true;
+  if (/^https:\/\/[^\/]+\.onrender\.com$/i.test(o)) return true;
 
   if (/^https:\/\/[^\/]+\.netlify\.app$/i.test(o)) return true;
 
@@ -120,20 +120,13 @@ app.use((req, res, next) => {
 
 const ALLOWED_FRAME_ANCESTORS = [
   "'self'",
-  "http://192.168.1.40",
-  "http://192.168.1.40:80",
-  "http://localhost",
-  "http://127.0.0.1",
-
-  // Wix / EditorX (si encore utilisés)
   "https://documentsdurand.wixsite.com",
   "https://*.wixsite.com",
   "https://*.wix.com",
   "https://*.editorx.io",
-
-  // Domaine public (pour plus tard)
-  "https://documentsdurand.fr",
-  "https://www.documentsdurand.fr",
+  "https://*.onrender.com",
+"https://documentsdurand.fr",
+"https://www.documentsdurand.fr",
 ];
 
 const FRAME_ANCESTORS_VALUE = "frame-ancestors " + ALLOWED_FRAME_ANCESTORS.join(" ");
@@ -439,6 +432,27 @@ app.get("/commerce/links.json", (req, res) => {
   });
 });
 
+app.get("/atelier/api/config", async (req, res) => {
+  let client;
+  try {
+    client = await ftpClient();
+
+    // ✅ Chemin du fichier sur ton FTP (d’après ta capture: /service/atelier_data.json)
+    // Adapte si ton code utilise déjà une constante de dossier FTP.
+    const data = (await dlJSON(client, "/service/atelier_data.json")) || {};
+
+    return res.json({
+      ok: true,
+      lignes: data.lignes || data.LIGNES || [],
+      regles: data.regles || data.REGLES || []
+    });
+  } catch (e) {
+    console.error("[atelier/api/config]", e?.message || e);
+    return res.status(500).json({ ok: false, error: "config_load_failed" });
+  } finally {
+    try { client?.close(); } catch {}
+  }
+});
 
 // Fonction retry avec backoff exponentiel pour robustesse réseau
 async function retryWithBackoff(fn, options = {}) {
@@ -2140,4 +2154,3 @@ const PORT = process.env.PORT || 3000;
 
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 })();
-
