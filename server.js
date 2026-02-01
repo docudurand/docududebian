@@ -490,8 +490,6 @@ app.get("/atelier/api/config", async (req, res) => {
   }
 });
 
-/
-// QR code pour les dossiers Atelier (utilisé dans les PDF)
 app.get("/atelier/qr/:no", async (req, res) => {
   try {
     const no = String(req.params.no || "").trim();
@@ -510,7 +508,7 @@ app.get("/atelier/qr/:no", async (req, res) => {
     return res.status(500).send("qr_error");
   }
 });
-/ Fonction retry avec backoff exponentiel pour robustesse réseau
+
 async function retryWithBackoff(fn, options = {}) {
   const {
     maxRetries = 3,
