@@ -174,13 +174,15 @@
       '<div class="msg err"><strong>Numéro de dossier manquant.</strong><br/>' +
       'Le lien utilisé ne contient pas de numéro de dossier.</div>';
   } else {
-    loadCase(noParam);
+    const normalized = normalizeNo(noParam) || noParam;
+	loadCase(normalized);
+
   }
 
   async function loadCase(no){
     $content.innerHTML =
       '<span class="loader" aria-hidden="true"></span>' +
-      '<span class="muted">Chargement du dossier ' + esc(no) + '…</span>';
+      '<span class="muted">Chargement du dossier ' + esc(String(no).padStart(5,"0")) + '…</span>';
 
     try{
       const resp = await fetch(API_BASE + "/atelier/api/cases/" + encodeURIComponent(no));
