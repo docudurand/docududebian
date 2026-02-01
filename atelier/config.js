@@ -1,8 +1,6 @@
-// Config Atelier (Debian)
+// Fichier servi en statique par nginx
+// Les pages Atelier attendent window.__ATELIER_CFG.GS_URL
 window.__ATELIER_CFG = {
-  // Base API servie par ton Node (nginx proxy vers :3000)
-  API_BASE: "/atelier/api",
-
-  // Fichier JSON sur ton FTP Freebox
-  FTP_FILE: "atelier_data.json"
+  // Cette URL DOIT retourner directement du JSON: { lignes: [...], regles: [...] }
+  GS_URL: "/atelier/api/config"
 };
