@@ -59,7 +59,8 @@ function htmlPage(title, body) {
     label{display:block;font-weight:700;margin:14px 0 6px}
     input,select,textarea,button{font:inherit}
     input,select,textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff}
-    textarea{min-height:260px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    textarea{min-height:unset;height:auto;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    #jsonArea{min-height:260px}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .btn{background:#2563eb;color:#fff;border:0;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:700}
     .btn.secondary{background:#e5e7eb;color:#111}
@@ -67,11 +68,11 @@ function htmlPage(title, body) {
     .msg{margin-top:10px;font-weight:700}
     .muted{color:#6b7280;font-size:13px}
     code{background:#eef2ff;padding:2px 6px;border-radius:6px}
-    table{width:100%;border-collapse:separate;border-spacing:0 6px}
+    table{width:100%;border-collapse:separate;border-spacing:0 10px}
     th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e5e7eb;padding:10px 8px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
-    td{vertical-align:top}
+    td{vertical-align:top;padding:8px}
     .grid{display:grid;gap:26px}
-    .wide{overflow:auto;border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fafbff;margin-bottom:22px}
+    .wide{overflow:auto;border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fafbff;margin-bottom:30px}
     .section-title{font-weight:800;margin:16px 0 10px}
     @media (max-width: 900px){
       body{padding:12px}
@@ -395,7 +396,7 @@ function editorPage(baseUrl, csrfToken) {
       const collectFns = [];
       const list = document.createElement("div");
       list.style.display = "grid";
-      list.style.gap = "20px";
+      list.style.gap = "28px";
 
       function addGroup(group) {
         const card = document.createElement("div");
