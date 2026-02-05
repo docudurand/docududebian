@@ -60,6 +60,7 @@
   }, {passive:true});
 
   function initDynamicLinks() {
+    const televenteLinks = { bosch: "", lub: "" };
 
     const candidates = [
       new URL('./links.json', location.href).toString(),
@@ -97,19 +98,36 @@
       return null;
     };
 
-    fetchFirstOk().then((data) => {
-      if (!data) return;
-      const bosch = cleanUrl(data?.televenteBosch || data?.televente_bosch);
-      const lub   = cleanUrl(data?.televenteLub || data?.televente_lub || data?.televente_lubrifiant);
-
+    const bindTelevente = () => {
       document.querySelectorAll('[data-id]').forEach((btn) => {
         const id = btn.getAttribute('data-id');
-        let url = null;
-        if (id === 'televente-bosch') url = bosch;
-        else if (id === 'televente-lub') url = lub;
-        if (url) btn.addEventListener('click', () => openInFrame(url));
+        btn.addEventListener('click', async () => {
+          if (!televenteLinks.bosch && !televenteLinks.lub) {
+            const data = await fetchFirstOk().catch(() => null);
+            if (data) {
+              televenteLinks.bosch = cleanUrl(data?.televenteBosch || data?.televente_bosch);
+              televenteLinks.lub = cleanUrl(data?.televenteLub || data?.televente_lub || data?.televente_lubrifiant);
+            }
+          }
+          let url = "";
+          if (id === 'televente-bosch') url = televenteLinks.bosch;
+          else if (id === 'televente-lub') url = televenteLinks.lub;
+          if (!url) return;
+          // External sites often block iframes; open in a new tab for reliability.
+          window.open(url, "_blank", "noopener");
+        });
       });
-    }).catch(() => {});
+    };
+
+    fetchFirstOk().then((data) => {
+      if (data) {
+        televenteLinks.bosch = cleanUrl(data?.televenteBosch || data?.televente_bosch);
+        televenteLinks.lub = cleanUrl(data?.televenteLub || data?.televente_lub || data?.televente_lubrifiant);
+      }
+      bindTelevente();
+    }).catch(() => {
+      bindTelevente();
+    });
   }
 
   if (document.readyState === 'loading') {
