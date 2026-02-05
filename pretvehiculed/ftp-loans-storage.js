@@ -9,7 +9,7 @@ import crypto from 'crypto';
 const FTP_CONFIG = {
   host: process.env.FTP_HOST,
   user: process.env.FTP_USER,
-  password: process.env.FTP_PASSWORD,
+  password: process.env.FTP_PASS || process.env.FTP_PASSWORD,
   port: parseInt(process.env.FTP_PORT || '21'),
   secure: process.env.FTP_SECURE === 'true',
   secureOptions: { 
@@ -411,7 +411,7 @@ export function checkFtpConfig() {
   const missing = [];
   if (!FTP_CONFIG.host) missing.push('FTP_HOST');
   if (!FTP_CONFIG.user) missing.push('FTP_USER');
-  if (!FTP_CONFIG.password) missing.push('FTP_PASSWORD');
+  if (!FTP_CONFIG.password) missing.push('FTP_PASS/FTP_PASSWORD');
   
   if (missing.length > 0) {
     return {

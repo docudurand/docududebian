@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Bon de Commande PC</title>
+  <style>
+    html, body { margin:0; padding:0; width:100%; box-sizing:border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    .container { padding:0.2rem; background:#f9fafb; color:#111827; font-family:Arial,sans-serif; }
+    .sous-titre { text-align:center; font-size:1.05rem; color:#333; margin-bottom:0.4rem; }
+    h1 { text-align:center; font-size:1.25rem; margin-bottom:0.3rem; }
+    input, select { width:100%; padding:0.5rem; margin-bottom:0.65rem; border:1px solid #d1d5db; border-radius:6px; font-size:0.95rem; background:#fff; }
+    select#salesperson { font-size: 1.05rem; font-weight: 600; padding: 0.6rem; }
+    #client { font-size: 1.05rem; font-weight: 600; padding: 0.6rem; position: relative; }
+
+    .client-wrap { position: relative; margin-bottom: 1.2rem; }
+    .discount-badge { font-size:.9rem; color:#0f766e; margin-top:-.35rem; margin-bottom: 1.2rem; line-height:1.35; }
+    #salesperson { margin-bottom: 1.6rem; }
+
+    .client-autocomplete {
+      position:absolute; top:100%; left:0; right:0; z-index: 9999;
+      background:#fff; border:1px solid #cbd5e1; border-top:none; border-radius:0 0 6px 6px;
+      max-height: 240px; overflow:auto; display:none;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+    .client-autocomplete .item { padding:.45rem .6rem; cursor:pointer; display:flex; justify-content:space-between; gap:.8rem; align-items:center; }
+    .client-autocomplete .item:hover { background:#f1f5f9; }
+    .client-autocomplete .num { font-weight:700; color:#0f172a; min-width: 84px; }
+    .client-autocomplete .nom { color:#334155; flex:1; }
+    .client-autocomplete .rem { white-space:nowrap; font-size:.85rem; color:#0ea5e9; }
+
+    nav { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.55rem; }
+    nav button { flex:1 1 calc(50% - .4rem); padding:.55rem; font-size:1rem; border:none; border-radius:6px; background:#e5e7eb; cursor:pointer; transition:background .2s; }
+    nav button.active, nav button:hover { background:#4caf50; color:#fff; font-weight:bold; }
+    #sub-nav { display:none; flex-wrap:wrap; gap:0.3rem; margin-bottom:0.5rem; }
+    #sub-nav button { flex:1 1 calc(50% - .3rem); padding:.5rem; font-size:.95rem; border:none; border-radius:6px; background:#d1d5db; cursor:pointer; transition:background .2s; }
+    #sub-nav button.active, #sub-nav button:hover { background:#2196f3; color:#fff; font-weight:bold; }
+
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+
+    .item-row {
+      display:grid; grid-template-columns:1fr auto; gap:.5rem;
+      padding:.5rem; margin-bottom:.5rem; background:#fff;
+      border:1px solid #d1d5db; border-radius:6px; align-items:center;
+      scroll-margin-top: 50px; transition: background 0.2s;
+    }
+    .item-info { display:flex; flex-direction:column; gap:.25rem; }
+    .item-info span { font-size:.95rem; }
+    .unit-price, .line-total { font-weight:bold; }
+
+    .manual-row .item-info { gap:.4rem; }
+    .manual-fields { display:flex; gap:.4rem; flex-wrap:wrap; }
+    .manual-fields input[type="text"]{ flex:2; min-width: 160px; }
+    .manual-fields input[type="number"]{ flex:1; min-width: 120px; }
+
+    .counter, .months { display:flex; align-items:center; gap:.35rem; }
+    .counter button{
+      border:1px solid #cbd5e1;
+      border-radius:6px;
+      background:#d1d5db;
+      font-weight:bold;
+      cursor:pointer;
+      width:34px; height:34px;
+      font-size:1.05rem;
+      display:flex; align-items:center; justify-content:center;
+      transition: background .15s, transform .05s;
+    }
+    .counter button:hover{ background:#cfd3d9; }
+    .counter button:active{ transform:scale(.98); }
+    .counter .qty{ font-size:1rem; font-weight:bold; min-width:1.4em; text-align:center; display:inline-block; }
+    .counter .plus10{
+      font-size:.95rem; width:48px; height:32px; border-radius:6px; background:#e1e4e9; border:1px solid #cbd5e1;
+    }
+
+.offerte-row { background:#f0f9ff !important; border-left:5px solid #0ea5e9; }
+.offerte-row .item-info span { font-weight:700; }
+
+    .months{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:clamp(.35rem, 2.5vw, 1.5rem);
+      flex-wrap:nowrap;
+      width:100%;
+    }
+    .mblock {
+      display:flex; align-items:center; gap:.25rem; padding:.2rem .3rem; border-radius:6px;
+      flex:1 1 0;
+      justify-content:center;
+      min-width:0;
+    }
+    .mblock .mlabel { font-size:.85rem; font-weight:700; padding:.2rem .45rem; border-radius:6px; border:1px solid transparent; }
+    .mblock button {
+      border:1px solid #cbd5e1; border-radius:6px; background:#e5e7eb; font-weight:800; cursor:pointer;
+      width:34px; height:34px; font-size:1.05rem; display:flex; align-items:center; justify-content:center;
+      transition:transform .05s, background .15s, border-color .15s, color .15s;
+    }
+    .mblock button:active { transform:scale(.98); }
+    .mblock .mqty{ font-size:1rem; font-weight:800; min-width:1.6em; text-align:center; }
+
+    .mblock--janv .mlabel{ background:#d1fae5; color:#065f46; border-color:#10b981; }
+    .mblock--fev .mlabel{ background:#ffedd5; color:#9a3412; border-color:#fb923c; }
+    .mblock--mars .mlabel{ background:#dbeafe; color:#1e3a8a; border-color:#60a5fa; }
+    .mblock--avril .mlabel{ background:#ede9fe; color:#4c1d95; border-color:#a78bfa; }
+
+    .add-line-bar { display:flex; justify-content:flex-end; margin:.4rem 0 .2rem 0; }
+    .add-line-btn {
+      padding:.45rem .7rem; border:1px dashed #60a5fa; background:#eff6ff; color:#1e3a8a;
+      border-radius:8px; font-weight:700; cursor:pointer;
+    }
+    .add-line-btn:hover { background:#dbeafe; }
+
+    textarea.comment, #global-comment {
+      width:100%; padding:.5rem; margin:.5rem 0; border:1px solid #d1d5db;
+      border-radius:6px; font-size:.95rem; line-height:1.4; resize:none;
+      overflow:hidden; min-height:6rem; background:#fff;
+    }
+    .total-section { font-weight:bold; margin:.5rem 0; font-size:1rem; }
+    #global-total { font-size:1.05rem; }
+    #send-order { width:100%; padding:.6rem; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:1.05rem; cursor:pointer; transition:background .2s; }
+    #send-order:hover { background:#1d4ed8; }
+    #status { margin-top:.5rem; text-align:center; font-size:.95rem; }
+    .item-row.highlighted { background:#ffe066 !important; }
+    .promodurand-row { background:#e6f7f2 !important; border-left:5px solid #12b886; }
+    .points-extra-row { background:#eef6ff !important; border-left:5px solid #3b82f6; }
+	.veste-row { background:#fff7ed !important; border-left:5px solid #fb923c; }
+	.veste-row .item-info span { font-weight:700; }
+
+  
+.loading-overlay{
+  position:fixed; inset:0;
+  background:rgba(249,250,251,.85);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:20000;
+}
+.loading-overlay.show{ display:flex; }
+
+.loading-box{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:.6rem;
+  padding:1rem 1.2rem;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+
+.spinner{
+  width:48px; height:48px;
+  border:5px solid #cbd5e1;
+  border-top-color:#2563eb;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+.loading-text{
+  font-weight:700;
+  color:#111827;
+}
+
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+<div id="loading" class="loading-overlay" aria-hidden="true">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text">Chargement des données…</div>
+  </div>
+</div>
+
+  <div class="container">
+    <h1>DURAND SERVICES</h1>
+    <p class="sous-titre">TELEVENTE BOSCH JANVIER 2026</p>
+
+    <div class="client-wrap">
+      <input id="client" type="text" placeholder="Nom du client" />
+      <div id="client-list" class="client-autocomplete"></div>
+    </div>
+    <div id="discount-info" class="discount-badge"></div>
+
+    <select id="salesperson">
+      <option value="">-- Sélectionnez un commercial --</option>
+      <option value="Casti Jeremy">Casti Jeremy</option>
+      <option value="Trenti Anthony">Trenti Anthony</option>
+      <option value="Bazoge Ilona">Bazoge Ilona</option>
+      <option value="Barret Olivier">Barret Olivier</option>
+      <option value="Remond Nicolas">Remond Nicolas</option>
+    </select>
+
+    <nav id="main-nav">
+      <button class="tab-btn active" data-tab="batterie">Batterie</button>
+      <button class="tab-btn" data-tab="filtration">Filtration</button>
+      <button class="tab-btn" data-tab="balai">Balai</button>
+      <button class="tab-btn" data-tab="freinage">Freinage</button>
+      <button class="tab-btn" data-tab="ampoule">Ampoule</button>
+      <button class="tab-btn" data-tab="bougie">Bougie</button>
+      <button class="tab-btn" data-tab="Kit-Distribution">Kit Distribution</button>
+      <button class="tab-btn" data-tab="liquide">Liquide de freins</button>
+    </nav>
+
+    <div id="sub-nav"></div>
+    <div id="tabs-container"></div>
+
+    <div class="total-section">Montant total : <span id="global-total">0.00 €</span></div>
+    <textarea id="global-comment" class="comment" placeholder="Votre commentaire global..."></textarea>
+    <button id="send-order" type="button">Envoyer le bon de commande 📧</button>
+    <p id="status"></p>
+  </div>
+
+<script>
+const SHEET_API_URL = 'https://mes-formulaires.onrender.com/api/sheets/televente-bosch';
+const SEND_ENDPOINT  = 'https://mes-formulaires.onrender.com/formtelevente/send-order';
+const FORM_ORIGIN    = 'televente BOSCH 2026';
+
+function showLoading(msg){
+  const o = document.getElementById('loading');
+  if (!o) return;
+  const t = o.querySelector('.loading-text');
+  if (t && msg) t.textContent = msg;
+  o.classList.add('show');
+}
+function hideLoading(){
+  const o = document.getElementById('loading');
+  if (!o) return;
+  o.classList.remove('show');
+}
+
+const TAB_LIST = [
+  { id:'batteriekadeos',  sheet:'Batterie Bosch Kadeos', name:'Batterie Bosch Kadeos' },
+  { id:'batterietv',      sheet:'Batterie Bosch TV',     name:'Batterie Bosch TV' },
+  { id:'gigawattkadeos',  sheet:'Gigawatt Kadeos',       name:'Gigawatt Kadeos' },
+  { id:'gigawatttv',      sheet:'Gigawatt TV',           name:'Gigawatt TV' },
+  { id:'balai',           sheet:'Balai',                 name:'Balai' },
+  { id:'freinage',        sheet:'Freinage',              name:'Freinage' },
+  { id:'ampoule',         sheet:'Ampoule',               name:'Ampoule' },
+  { id:'bougieall',       sheet:'Bougieall',             name:'Bougie Allumage' },
+  { id:'bougiepre',       sheet:'Bougiepre',             name:'Bougie Préchauffage' },
+  { id:'filtre-huile',    sheet:'Filtre Huile',          name:'Filtre Huile' },
+  { id:'filtre-air',      sheet:'Filtre Air',            name:'Filtre Air' },
+  { id:'filtre-gazoil',   sheet:'Filtre Gazoil',         name:'Filtre Gazoil' },
+  { id:'filtre-pollen',   sheet:'Filtre Pollen',         name:'Filtre Pollen' },
+  { id:'quantitatifs',    sheet:'quantitatifs',          name:'QUANTITATIFS FILTRATION' },
+  { id:'Kit-Distribution',sheet:'Kit Distribution',      name:'Kit Distribution' },
+  { id:'liquide',         sheet:'Liquide de freins',     name:'Liquide de freins' },
+];
+
+const SUB_TABS = {
+  batterie: [
+    { id: 'batteriekadeos', label: 'Batterie Bosch Kadeos' },
+    { id: 'batterietv',     label: 'Batterie Bosch TV' },
+    { id: 'gigawattkadeos', label: 'Gigawatt Kadeos' },
+    { id: 'gigawatttv',     label: 'Gigawatt TV' }
+  ],
+  filtration: [
+    { id: 'filtre-huile',  label: 'Filtre Huile' },
+    { id: 'filtre-air',    label: 'Filtre Air' },
+    { id: 'filtre-gazoil', label: 'Filtre Gazoil' },
+    { id: 'filtre-pollen', label: 'Filtre Pollen' },
+    { id: 'quantitatifs',  label: 'QUANTITATIFS FILTRATION' },
+  ],
+  bougie: [
+    { id: 'bougieall',  label: 'Bougie Allumage' },
+    { id: 'bougiepre',  label: 'Bougie Préchauffage' }
+  ]
+};
+
+const TABS_WITH_PROMO = new Set(['batteriekadeos','gigawattkadeos']);
+const TABS_WITH_POINTS = new Set([
+  'balai','freinage','ampoule',
+  'bougieall','bougiepre',
+  'filtre-huile','filtre-air','filtre-gazoil','filtre-pollen',
+  'Kit-Distribution','liquide'
+]);
+
+const TABS_WITH_VESTES = new Set(['batteriekadeos','batterietv','gigawattkadeos','gigawatttv']);
+
+const TABS_PLUS10 = new Set([
+  'balai',
+  'bougieall','bougiepre',
+  'filtre-huile','filtre-air','filtre-gazoil','filtre-pollen',
+  'quantitatifs'
+]);
+
+const BATTERY_TABS = new Set(['batteriekadeos','batterietv','gigawattkadeos','gigawatttv']);
+const MONTHS = ['janv','fev','mars','avril'];
+const MONTH_LABEL = { janv:'Janv', fev:'Fev', mars:'Mars', avril:'Avril' };
+
+let CLIENTS = [];
+let selectedClient = null;
+let selectedClientLabel = '';
+
+function isBatteryTab(tabId){ return BATTERY_TABS.has(tabId); }
+
+function getRowTotalQty(row){
+if (
+  row.classList.contains('promodurand-row') ||
+  row.classList.contains('points-extra-row') ||
+  row.classList.contains('veste-row') ||
+  row.classList.contains('offerte-row')
+) return 0;
+
+  const tabEl = row.closest('.tab-content');
+  const tabId = tabEl?.id || '';
+
+  if (row.classList.contains('manual-row')) {
+    const qtyEl = row.querySelector('.qty');
+    return qtyEl ? (+qtyEl.textContent || 0) : 0;
+  }
+
+  if (!isBatteryTab(tabId)) {
+    const qtyEl = row.querySelector('.qty');
+    return qtyEl ? (+qtyEl.textContent || 0) : 0;
+  }
+  let sum = 0; row.querySelectorAll('.mqty').forEach(s=> sum += (+s.textContent||0));
+  return sum;
+}
+
+function getTabProductQty(tabId) {
+  const tab = document.getElementById(tabId); if (!tab) return 0;
+  return [...tab.querySelectorAll('.item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')]
+    .reduce((a,r)=>a + getRowTotalQty(r), 0);
+}
+
+function getDiscountForTab(tabId) {
+  if (!selectedClient) return 0;
+  const all48 = getTabProductQty('bougieall') >= 48;
+  const pre48 = getTabProductQty('bougiepre') >= 48;
+  if (tabId === 'freinage') return (all48 || pre48)
+      ? (Number(selectedClient.remise_totalfrein2) || Number(selectedClient.remise_totalfrein) || 0)
+      : (Number(selectedClient.remise_totalfrein) || 0);
+  if (tabId === 'bougieall') return all48
+      ? (Number(selectedClient.remise_totalbougie2) || Number(selectedClient.remise_totalbougie) || 0)
+      : (Number(selectedClient.remise_totalbougie) || 0);
+  if (tabId === 'bougiepre') return pre48
+      ? (Number(selectedClient.remise_totalbougie2) || Number(selectedClient.remise_totalbougie) || 0)
+      : (Number(selectedClient.remise_totalbougie) || 0);
+  if (tabId === 'Kit-Distribution') return Number(selectedClient.remise_totalkit) || 0;
+  return 0;
+}
+
+function getTabQty(tabEl) {
+  return [...tabEl.querySelectorAll('.item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')]
+    .reduce((a,r)=>a + getRowTotalQty(r), 0);
+}
+
+function getRowPrice(r, sum, tabId) {
+  const base = Number(r.dataset.price)||0;
+  if (sum===null) sum = getTabQty(r.closest('.tab-content'));
+  let price = base;
+
+  if (!r.classList.contains('manual-row')) {
+    if (r.dataset.price100 && sum >= 100) price = +r.dataset.price100;
+    else if (r.dataset.price60  && sum >= 60)  price = +r.dataset.price60;
+    else if (r.dataset.price50  && sum >= 50)  price = +r.dataset.price50;
+    else if (r.dataset.price30  && sum >= 30)  price = +r.dataset.price30;
+    else if (r.dataset.price25  && sum >= 25)  price = +r.dataset.price25;
+    else if (r.dataset.price13  && sum >= 13)  price = +r.dataset.price13;
+  }
+
+  const d = getDiscountForTab(tabId);
+  if (d > 0) price = price * (1 - d/100);
+
+  return price;
+}
+
+function recalcTab(tabEl) {
+  const items = [...tabEl.querySelectorAll('.item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')];
+  const sum   = items.reduce((a,r)=>a + getRowTotalQty(r), 0);
+  let tot     = 0;
+  items.forEach(r=>{
+    const q = getRowTotalQty(r);
+    const p = getRowPrice(r, sum, tabEl.id);
+    const up = r.querySelector('.unit-price');
+    if (up) up.textContent = p.toFixed(2);
+    tot += q*p;
+  });
+  tabEl.querySelector('.tab-qty').textContent   = sum;
+  tabEl.querySelector('.tab-total').textContent = tot.toFixed(2)+' €';
+  recalcGlobal();
+}
+
+function recalcGlobal() {
+  let tot = 0;
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tot += [...tab.querySelectorAll('.item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')]
+      .reduce((a,r) => a + (getRowTotalQty(r) * getRowPrice(r, null, tab.id)), 0);
+  });
+  document.getElementById('global-total').textContent = tot.toFixed(2)+' €';
+}
+
+async function buildPdfBlob() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+
+  const logoUrl = "https://i.postimg.cc/FsgLstVW/logo.png";
+  const logoResponse = await fetch(logoUrl);
+  const logoBlob = await logoResponse.blob();
+  const logoBase64 = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(logoBlob);
+  });
+  doc.addImage(logoBase64, 'PNG', 12, 8, 55, 0);
+
+  const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
+  const MARGIN_TOP = 15, MARGIN_BOTTOM = 15;
+  let y = MARGIN_TOP + 10;
+
+  doc.setFontSize(16); y += 10;
+  doc.text('Bon de Commande Televente BOSCH 2026', 105, y, { align:'center' }); y+=10;
+  doc.setFontSize(11);
+  doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 15, y);
+
+  const clientTxt = document.getElementById('client').value || '—';
+  const commTxt   = document.getElementById('salesperson').value || '—';
+  y += 6; doc.text(`Commercial : ${commTxt}`, 15, y);
+  y += 6; doc.text(`Client : ${clientTxt}`, 15, y);
+  y += 12;
+
+  for (const tab of document.querySelectorAll('.tab-content')) {
+    const h2 = tab.querySelector('h2');
+    const tabTitle = h2 ? h2.textContent : '';
+    const isBattery = isBatteryTab(tab.id);
+
+    const allRows = [...tab.querySelectorAll('.item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')];
+    const rows = allRows.filter(r=>{
+      if (r.classList.contains('manual-row')) return getRowTotalQty(r) > 0;
+      if (!isBattery) return getRowTotalQty(r) > 0;
+      const mqs = [...r.querySelectorAll('.mqty')].map(s=>+s.textContent||0);
+      return mqs.some(v=>v>0);
+    });
+
+const promoInput  = tab.querySelector('.promodurand-row input');
+const pointsInput = tab.querySelector('.points-extra-row input');
+
+const promoVal  = promoInput  && Number(promoInput.value)>0  ? Number(promoInput.value)  : 0;
+const pointsVal = pointsInput && Number(pointsInput.value)>0 ? Number(pointsInput.value) : 0;
+
+const offerteVal = Number(tab.querySelector('.offerte-row .qty')?.textContent || 0);
+
+const vesteRows = [...tab.querySelectorAll('.veste-row')]
+  .map(r => {
+    const q = Number(r.querySelector('.qty')?.textContent || 0);
+return {
+      ref: r.dataset.ref || '',
+      label: r.dataset.produit || '',
+      qty: q
+    };
+  })
+  .filter(x => x.qty > 0);
+
+
+
+    const totalTab  = rows.reduce((a, r) => a + (getRowTotalQty(r) * getRowPrice(r, null, tab.id)), 0);
+    const qtyTab    = rows.reduce((a, r) => a + getRowTotalQty(r), 0);
+    const comment   = (tab.querySelector('.comment')?.value || '').trim();
+
+    if (!rows.length && !comment && !promoVal && !pointsVal && !vesteRows.length && !offerteVal) continue;
+
+    if (y+12 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y=MARGIN_TOP; }
+    doc.setFontSize(16); doc.text(tabTitle, 15, y); y+=6;
+
+    if (rows.length) {
+      if (isBattery) {
+        const monthTotals = { janv: 0, fev: 0, mars: 0, avril: 0 };
+        let grandQty = 0;
+
+        const head = [['Réf','Produit','PU (€)','Janv','Fev','Mars','Avril','Qté','Total (€)']];
+        const body = rows.map(r=>{
+          const isManual = r.classList.contains('manual-row');
+
+          let ref = '', prod = '';
+          if (isManual) {
+            ref  = (r.querySelector('.manual-ref')?.value || '').trim();
+            prod = (r.querySelector('.manual-prod')?.value || '').trim();
+          } else {
+            const infoSpans = r.querySelectorAll('.item-info span');
+            const first = infoSpans[0]?.textContent || '';
+            ref  = (first.split('|')[0] || '').replace('Réf :','').trim();
+            prod = (first.split('|')[1] || '').replace('Produit :','').trim();
+          }
+
+          const pu   = r.querySelector('.unit-price').textContent;
+          const mvals = {};
+          if (!isManual) {
+            MONTHS.forEach(m=>{
+              const s = r.querySelector(`.mqty[data-month="${m}"]`);
+              mvals[m] = s ? (+s.textContent||0) : 0;
+            });
+          } else {
+            MONTHS.forEach(m=> mvals[m]=0);
+          }
+
+          monthTotals.janv += mvals.janv;
+          monthTotals.fev += mvals.fev;
+          monthTotals.mars += mvals.mars;
+          monthTotals.avril += mvals.avril;
+
+          const qTotal = getRowTotalQty(r);
+          grandQty += qTotal;
+
+          const total = (parseFloat(pu.replace(',', '.')) * qTotal).toFixed(2);
+          const fmt = (v)=> v>0 ? String(v) : '';
+          return [ ref, prod, pu, fmt(mvals.janv), fmt(mvals.fev), fmt(mvals.mars), fmt(mvals.avril), String(qTotal), total ];
+        });
+
+        const foot = [[
+          '', 'Totaux (Qté)', '',
+          String(monthTotals.janv),
+          String(monthTotals.fev),
+          String(monthTotals.mars),
+          String(monthTotals.avril),
+          String(grandQty),
+          ''
+        ]];
+
+        doc.autoTable({
+          head, body, foot,
+          startY:y,
+          styles:{fontSize:10,halign:'center'},
+          headStyles:{fillColor:[79,92,102]},
+          footStyles:{fillColor:[240,240,240], textColor:[0,0,0], fontStyle:'bold'},
+          theme:'grid',
+          margin:{left:15,right:15},
+        });
+        y = doc.lastAutoTable.finalY + 2;
+
+      } else {
+        const head = [['Réf','Produit','PU (€)','Qté','Total (€)']];
+        const body = rows.map(r=>{
+          let ref = '', prod = '';
+          if (r.classList.contains('manual-row')) {
+            ref  = (r.querySelector('.manual-ref')?.value || '').trim();
+            prod = (r.querySelector('.manual-prod')?.value || '').trim();
+          } else {
+            const infoSpans = r.querySelectorAll('.item-info span');
+            ref  = (infoSpans[0].textContent.split('|')[0] || '').replace('Réf :','').trim();
+            prod = (infoSpans[0].textContent.split('|')[1] || '').replace('Produit :','').trim();
+          }
+          const pu   = r.querySelector('.unit-price').textContent;
+          const qt   = getRowTotalQty(r);
+          const total = (parseFloat(pu.replace(',', '.')) * qt).toFixed(2);
+          return [ ref, prod, pu, String(qt), total ];
+        });
+
+        doc.autoTable({
+          head, body,
+          startY:y,
+          styles:{fontSize:10,halign:'center'},
+          headStyles:{fillColor:[79,92,102]},
+          theme:'grid',
+          margin:{left:15,right:15},
+        });
+        y = doc.lastAutoTable.finalY + 2;
+      }
+    }
+
+    if (promoVal > 0)  { if (y+8 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y=MARGIN_TOP; } doc.setFontSize(12); doc.text(`PROMODURAND (KADEOS 120€ OU 240€) : ${promoVal}`, 15, y+5); y += 10; }
+    if (pointsVal > 0) { if (y+8 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y=MARGIN_TOP; } doc.setFontSize(12); doc.text(`Points Bosch EXTRA : ${pointsVal}`, 15, y+5); y += 10; }
+	if (offerteVal > 0) {
+  if (y+8 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y=MARGIN_TOP; }
+  doc.setFontSize(12);
+  doc.text(`BATTERIE S4005 OFFERTE : ${offerteVal}`, 15, y+5);
+  y += 10;
+}
+	if (vesteRows.length) {
+  for (const v of vesteRows) {
+    if (y+8 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y=MARGIN_TOP; }
+    doc.setFontSize(12);
+    doc.text(`${v.label} (${v.ref}) : ${v.qty}`, 15, y+5);
+    y += 8;
+  }
+  y += 2;
+}
+
+
+    if (y+8 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y=MARGIN_TOP; }
+    doc.setFontSize(11); doc.text(`Total ${tabTitle} : ${totalTab.toFixed(2)} € | Qté : ${qtyTab}`, 15, y+5);
+    y += 15;
+
+    if (comment) {
+      const lines = doc.splitTextToSize('Commentaire : ' + comment, 180);
+      const lineHeight = 5, paddingTop = 5, paddingBottom = 2;
+      const boxHeight = lines.length * lineHeight + paddingTop + paddingBottom;
+      if (y+boxHeight > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+      doc.rect(13, y-1, 184, boxHeight);
+      doc.text(lines, 15, y + paddingTop);
+      y += boxHeight + 15;
+    } else {
+      y += 15;
+    }
+
+    if (y > PAGE_HEIGHT-MARGIN_BOTTOM-15) { doc.addPage(); y = MARGIN_TOP; }
+  }
+
+  const globalComment = (document.getElementById('global-comment')?.value || '').trim();
+  if (globalComment) {
+    const lines = doc.splitTextToSize('Commentaire global : ' + globalComment, 180);
+    const lineHeight = 5, paddingTop = 5, paddingBottom = 2;
+    const boxHeight = lines.length * lineHeight + paddingTop + paddingBottom;
+    if (y+boxHeight > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+    doc.rect(13, y-1, 184, boxHeight);
+    doc.text(lines, 15, y + paddingTop);
+    y += boxHeight + 10;
+  }
+
+  let globalTotal = 0;
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    const rows = [...tab.querySelectorAll('.item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')];
+    rows.forEach(r => { globalTotal += getRowTotalQty(r) * getRowPrice(r, null, tab.id); });
+  });
+  if (y+10 > PAGE_HEIGHT-MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+  doc.setFontSize(16);
+  doc.text(`Montant total : ${globalTotal.toFixed(2)} €`, 15, y+6);
+  y += 12;
+
+  const blob = doc.output('blob');
+  blob.name = "Bon_de_Commande.pdf";
+  return blob;
+}
+
+function showTab(tabId) {
+  document.querySelectorAll('.tab-content.active').forEach(t=>t.classList.remove('active'));
+  document.getElementById(tabId)?.classList.add('active');
+  const el = document.getElementById(tabId);
+  if (el) recalcTab(el);
+}
+function updateSubNav(mainTab) {
+  const subNav = document.getElementById('sub-nav');
+  subNav.innerHTML = '';
+  subNav.style.display = 'none';
+  if (SUB_TABS[mainTab]) {
+    subNav.style.display = 'flex';
+    SUB_TABS[mainTab].forEach((st, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = st.label;
+      btn.className = 'sub-tab-btn' + (i === 0 ? ' active' : '');
+      btn.dataset.tab = st.id;
+      btn.onclick = function () {
+        subNav.querySelector('.sub-tab-btn.active')?.classList.remove('active');
+        btn.classList.add('active');
+        showTab(st.id);
+      };
+      subNav.appendChild(btn);
+    });
+    showTab(SUB_TABS[mainTab][0].id);
+  } else {
+    subNav.style.display = 'none';
+    const first = TAB_LIST.find(t => t.id === mainTab)?.id || TAB_LIST[0].id;
+    showTab(first);
+  }
+}
+
+function setSelectedClient(c) {
+  selectedClient = c || null;
+  const info = document.getElementById('discount-info');
+  if (selectedClient) {
+    const f1 = Number(selectedClient.remise_totalfrein) || 0;
+    const f2 = Number(selectedClient.remise_totalfrein2) || null;
+    const b1 = Number(selectedClient.remise_totalbougie) || 0;
+    const b2 = Number(selectedClient.remise_totalbougie2) || null;
+    const k  = Number(selectedClient.remise_totalkit) || 0;
+
+    const all48 = getTabProductQty('bougieall') >= 48;
+    const pre48 = getTabProductQty('bougiepre') >= 48;
+
+    const fAct = (all48 || pre48) ? (f2 ?? f1) : f1;
+    const bAllAct = all48 ? (b2 ?? b1) : b1;
+    const bPreAct = pre48 ? (b2 ?? b1) : b1;
+
+    const parts = [];
+    parts.push(`Freinage: ${fAct.toFixed(2)}%${((all48||pre48) && f2!=null)?' (palier 48)':''}`);
+    parts.push(`Bougie All: ${bAllAct.toFixed(2)}%${(all48 && b2!=null)?' (48)':''}`);
+    parts.push(`Bougie Pre: ${bPreAct.toFixed(2)}%${(pre48 && b2!=null)?' (48)':''}`);
+    parts.push(`Kit: ${k.toFixed(2)}%`);
+    info.textContent = `Remises appliquées → ${parts.join(' | ')}`;
+  } else {
+    info.textContent = '';
+  }
+  document.querySelectorAll('.tab-content').forEach(recalcTab);
+}
+function normalize(s){ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+function initAutocomplete() {
+  const input = document.getElementById('client');
+  const list  = document.getElementById('client-list');
+  function hide(){ list.style.display='none'; list.innerHTML=''; }
+  function show(items){
+    list.innerHTML = items.map(c=>`
+      <div class="item" data-num="${(c.numero||'').replace(/"/g,'&quot;')}">
+        <span class="num">${c.numero||'—'}</span>
+        <span class="nom">${c.nom||''}</span>
+        <span class="rem">
+          F:${(Number(c.remise_totalfrein)||0).toFixed(1)}% |
+          B:${(Number(c.remise_totalbougie)||0).toFixed(1)}% |
+          K:${(Number(c.remise_totalkit)||0).toFixed(1)}%
+        </span>
+      </div>`).join('');
+    list.style.display = items.length ? 'block':'none';
+  }
+  input.addEventListener('input', ()=>{
+    const q = normalize(input.value.trim());
+    if (!q){ hide(); setSelectedClient(null); return; }
+    const res = CLIENTS.filter(c=>{
+      const n = normalize(c.numero);
+      const m = normalize(c.nom);
+      return n.includes(q) || m.includes(q);
+    }).slice(0,30);
+    show(res);
+  });
+  list.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item');
+    if (!it) return;
+    const num = it.getAttribute('data-num');
+    const c = CLIENTS.find(x=>x.numero===num);
+    if (c){
+      selectedClientLabel = `${c.numero} ${c.nom}`.trim();
+      input.value = selectedClientLabel;
+      setSelectedClient(c);
+    }
+    hide();
+  });
+  input.addEventListener('change', ()=>{
+    if (input.value.trim() !== selectedClientLabel){
+      selectedClientLabel = '';
+      setSelectedClient(null);
+    }
+  });
+  document.addEventListener('click', (e)=>{
+    if (!e.target.closest('.client-wrap')) hide();
+  });
+}
+
+(() => {
+  function changeQty(btn, delta){
+    const row = btn.closest('.item-row');
+    const tabEl = btn.closest('.tab-content');
+
+    const mblock = btn.closest('.mblock');
+    if (mblock) {
+      const qEl = mblock.querySelector('.mqty');
+      const newVal = Math.max(0, (+qEl.textContent || 0) + delta);
+      qEl.textContent = newVal;
+
+      let total = 0;
+      row.querySelectorAll('.mqty').forEach(s => total += (+s.textContent || 0));
+      const hiddenTotal = row.querySelector('.qty');
+      if (hiddenTotal) hiddenTotal.textContent = total;
+
+      if (tabEl) recalcTab(tabEl);
+      return;
+    }
+
+    const counter = btn.closest('.counter');
+    const qtyEl = counter?.querySelector('.qty');
+    if (!qtyEl) return;
+
+    const current = Math.max(0, (+qtyEl.textContent || 0) + delta);
+    qtyEl.textContent = current;
+
+    if (tabEl) recalcTab(tabEl);
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!(t.classList.contains('plus') || t.classList.contains('minus') || t.classList.contains('plus10'))) return;
+    e.preventDefault();
+    let delta = 0;
+    if (t.classList.contains('plus')) delta = 1;
+    else if (t.classList.contains('minus')) delta = -1;
+    else delta = 10;
+    changeQty(t, delta);
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.plus, .minus, .plus10').forEach(b => b.setAttribute('type','button'));
+  });
+})();
+
+function createManualRowHTML(tabId) {
+  const plus10 = TABS_PLUS10.has(tabId);
+  return `
+    <div class="item-row manual-row" data-ref="" data-produit="" data-price="0">
+      <div class="item-info">
+        <div class="manual-fields">
+          <input type="text" class="manual-ref" placeholder="Réf " />
+          <input type="text" class="manual-prod" placeholder="Produit " />
+          <input type="number" min="0" step="0.01" class="manual-price" placeholder="PU (€)" />
+        </div>
+        <span>PU : <span class="unit-price">0.00</span> €</span>
+      </div>
+      <div class="counter">
+        <button class="minus" type="button">−</button>
+        <span class="qty">0</span>
+        <button class="plus" type="button">+</button>
+        ${ plus10 ? '<button class="plus10" type="button">+10</button>' : '' }
+      </div>
+    </div>
+  `;
+}
+function attachManualRowEvents(row, tabEl) {
+  const refInput   = row.querySelector('.manual-ref');
+  const prodInput  = row.querySelector('.manual-prod');
+  const priceInput = row.querySelector('.manual-price');
+  const unitPrice  = row.querySelector('.unit-price');
+  const qtyEl      = row.querySelector('.qty');
+
+  const updateData = () => {
+    row.dataset.ref     = (refInput.value || '').trim();
+    row.dataset.produit = (prodInput.value || '').trim();
+
+    const v    = String(priceInput.value || '').replace(',', '.');
+    const num  = parseFloat(v);
+    const safe = isNaN(num) ? 0 : num;
+
+    row.dataset.price = String(safe);
+    unitPrice.textContent = safe.toFixed(2);
+
+    if (safe > 0 && (+qtyEl.textContent || 0) === 0) {
+      qtyEl.textContent = '1';
+    }
+
+    recalcTab(tabEl);
+  };
+
+  refInput.addEventListener('input', updateData);
+  prodInput.addEventListener('input', updateData);
+  priceInput.addEventListener('input', updateData);
+
+  priceInput.addEventListener('blur', () => {
+    const v    = String(priceInput.value || '').replace(',', '.');
+    const num  = parseFloat(v);
+    const safe = isNaN(num) ? 0 : num;
+    priceInput.value = safe ? safe.toString() : '';
+    unitPrice.textContent = safe.toFixed(2);
+  });
+}
+
+function parseMoney(text){
+  const s = String(text || '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[^\d,.\-]/g, '')
+    .trim();
+  if (!s) return 0;
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  if (hasComma) return Number(s.replace(',', '.')) || 0;
+  return Number(s) || 0;
+}
+
+function collectOrderPayload(){
+  const lines = [];
+  const byTab = {};
+
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    const tabId = tab.id || '';
+    const tabLabel = tab.querySelector('h2')?.textContent || tabId;
+    const comment = (tab.querySelector('.comment')?.value || '').trim();
+    if (comment) byTab[tabId] = comment;
+
+    tab.querySelectorAll('.item-row').forEach(row => {
+      if (row.classList.contains('promodurand-row') || row.classList.contains('points-extra-row')) return;
+      const qty = getRowTotalQty(row);
+      if (qty <= 0) return;
+      const ref = row.dataset.ref || '';
+      const produit = row.dataset.produit || '';
+      const pu = getRowPrice(row, null, tabId);
+      const months = {};
+      if (isBatteryTab(tabId)) {
+        MONTHS.forEach(m => {
+          const s = row.querySelector(`.mqty[data-month="${m}"]`);
+          months[m] = s ? (+s.textContent || 0) : 0;
+        });
+      }
+      lines.push({
+        tab: tabId,
+        tabLabel,
+        ref,
+        produit,
+        pu,
+        qty,
+        months: isBatteryTab(tabId) ? months : null
+      });
+    });
+
+    const promoInput = tab.querySelector('.promodurand-row input');
+    if (promoInput && Number(promoInput.value) > 0) {
+      lines.push({
+        tab: tabId,
+        tabLabel,
+        ref: 'PROMODURAND',
+        produit: 'PROMODURAND',
+        pu: 0,
+        qty: Number(promoInput.value),
+        special: 'promodurand'
+      });
+    }
+    const pointsInput = tab.querySelector('.points-extra-row input');
+    if (pointsInput && Number(pointsInput.value) > 0) {
+      lines.push({
+        tab: tabId,
+        tabLabel,
+        ref: 'POINTS_EXTRA',
+        produit: 'Points Bosch EXTRA',
+        pu: 0,
+        qty: Number(pointsInput.value),
+        special: 'points'
+      });
+    }
+
+    const offerteQty = Number(tab.querySelector('.offerte-row .qty')?.textContent || 0);
+    if (offerteQty > 0) {
+      lines.push({
+        tab: tabId,
+        tabLabel,
+        ref: '',
+        produit: 'BATTERIE S4005 OFFERTE',
+        pu: 0,
+        qty: offerteQty,
+        special: 'offerte'
+      });
+    }
+
+    tab.querySelectorAll('.veste-row').forEach(row => {
+      const q = Number(row.querySelector('.qty')?.textContent || 0);
+      if (q <= 0) return;
+      lines.push({
+        tab: tabId,
+        tabLabel,
+        ref: row.dataset.ref || '',
+        produit: row.dataset.produit || '',
+        pu: 0,
+        qty: q,
+        special: 'veste'
+      });
+    });
+  });
+
+  return {
+    origin: FORM_ORIGIN,
+    client: document.getElementById('client').value.trim(),
+    salesperson: document.getElementById('salesperson').value,
+    currency: 'EUR',
+    total: parseMoney(document.getElementById('global-total').textContent),
+    comments: {
+      global: (document.getElementById('global-comment').value || '').trim(),
+      byTab
+    },
+    lines
+  };
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  showLoading('Chargement des données…');
+  try {
+    const [rows, list] = await Promise.all([
+      fetch(SHEET_API_URL).then(r => r.json()),
+      fetch(SHEET_API_URL + '?table=clients').then(r => r.json())
+    ]);
+    CLIENTS = Array.isArray(list) ? list : [];
+
+          const grouped = {};
+          TAB_LIST.forEach(t => grouped[t.sheet] = []);
+          rows.forEach(r => {
+            const ong = (r.onglet||'').trim();
+            if (grouped[ong]) grouped[ong].push(r);
+          });
+    
+          let html = '';
+          TAB_LIST.forEach(tab => {
+            const isBattery = isBatteryTab(tab.id);
+            html += `
+              <div class="tab-content" id="${tab.id}">
+                <h2>${tab.name}</h2>
+                <input type="text" class="search-input" placeholder="🔍 Recherche produit/réf...">
+                ${
+                  (grouped[tab.sheet]||[]).map((prod, i) => {
+                    if ((prod.istitle || '').trim().toLowerCase() === 'oui') {
+                      return `<div class="section-title">${prod.produit || prod.ref || ''}</div>`;
+                    } else {
+                      if (isBattery) {
+                        return `
+                          <div class="item-row"
+                            data-ref="${(prod.ref||'').replace(/"/g,'&quot;')}"
+                            data-produit="${(prod.produit||'').replace(/"/g,'&quot;')}"
+                            data-rowidx="${i}"
+                            data-price="${prod.price||0}"
+                            data-price13="${prod.price13||''}"
+                            data-price30="${prod.price30||''}"
+                            data-price50="${prod.price50||''}"
+                            data-price60="${prod.price60||''}"
+                            data-price25="${prod.price25||''}"
+                            data-price100="${prod.price100||''}">
+                            <div class="item-info">
+                              <span>Réf : ${prod.ref||''}${prod.produit? ' | Produit : '+prod.produit:''}</span>
+                              <span>PU : <span class="unit-price">${(+prod.price||0).toFixed(2)}</span> €</span>
+                            </div>
+                            <div class="months">
+                              ${MONTHS.map(m=>`
+                                <div class="mblock mblock--${m}">
+                                  <span class="mlabel">${MONTH_LABEL[m]}:</span>
+                                  <button class="minus" type="button">−</button>
+                                  <span class="mqty" data-month="${m}">0</span>
+                                  <button class="plus" type="button">+</button>
+                                </div>
+                              `).join('')}
+                              <span class="qty" style="display:none">0</span>
+                            </div>
+                          </div>
+                        `;
+                      } else {
+                        return `
+                          <div class="item-row"
+                            data-ref="${(prod.ref||'').replace(/"/g,'&quot;')}"
+                            data-produit="${(prod.produit||'').replace(/"/g,'&quot;')}"
+                            data-rowidx="${i}"
+                            data-price="${prod.price||0}"
+                            data-price13="${prod.price13||''}"
+                            data-price30="${prod.price30||''}"
+                            data-price50="${prod.price50||''}"
+                            data-price60="${prod.price60||''}"
+                            data-price25="${prod.price25||''}"
+                            data-price100="${prod.price100||''}">
+                            <div class="item-info">
+                              <span>Réf : ${prod.ref||''}${prod.produit? ' | Produit : '+prod.produit:''}</span>
+                              <span>PU : <span class="unit-price">${(+prod.price||0).toFixed(2)}</span> €</span>
+                            </div>
+                            <div class="counter">
+                              <button class="minus" type="button">−</button>
+                              <span class="qty">0</span>
+                              <button class="plus" type="button">+</button>
+                              ${ TABS_PLUS10.has(tab.id) ? '<button class="plus10" type="button">+10</button>' : '' }
+                            </div>
+                          </div>
+                        `;
+                      }
+                    }
+                  }).join('')}
+                <div class="add-line-bar">
+                  <button class="add-line-btn" data-tab="${tab.id}" type="button">+ Ajouter une ligne</button>
+                </div>
+                ${ TABS_WITH_PROMO.has(tab.id) ? `
+                  <div class="item-row promodurand-row">
+                    <div class="item-info"><span>PROMODURAND (KADEOS 120€ OU 240€)</span></div>
+                    <div class="counter"><input type="number" class="special-input" style="font-size:1rem;width:90px;height:36px;border-radius:6px;text-align:center;border:1px solid #d1d5db;background:#fff;" min="0" value="0"></div>
+                  </div>` : '' }
+${ TABS_WITH_POINTS.has(tab.id) ? `
+  <div class="item-row points-extra-row">
+    <div class="item-info"><span>Points Bosch EXTRA</span></div>
+    <div class="counter">
+      <input type="number" class="special-input" style="font-size:1rem;width:90px;height:36px;border-radius:6px;text-align:center;border:1px solid #d1d5db;background:#fff;" min="0" value="0">
+    </div>
+  </div>
+` : '' }
+${ TABS_WITH_VESTES.has(tab.id) ? `
+<div class="item-row offerte-row" data-produit="BATTERIE S4005 OFFERTE">
+    <div class="item-info"><span>BATTERIE S4005 OFFERTE</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+  <div class="item-row veste-row" data-ref="TVBOSCH26S1S" data-produit="VESTE TAILLE S">
+    <div class="item-info"><span>VESTE TAILLE S — Réf : TVBOSCH26S1S</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+
+  <div class="item-row veste-row" data-ref="TVBOSCH26S1M" data-produit="VESTE TAILLE M">
+    <div class="item-info"><span>VESTE TAILLE M — Réf : TVBOSCH26S1M</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+
+  <div class="item-row veste-row" data-ref="TVBOSCH26S1L" data-produit="VESTE TAILLE L">
+    <div class="item-info"><span>VESTE TAILLE L — Réf : TVBOSCH26S1L</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+
+  <div class="item-row veste-row" data-ref="TVBOSCH26S1XL" data-produit="VESTE TAILLE XL">
+    <div class="item-info"><span>VESTE TAILLE XL — Réf : TVBOSCH26S1XL</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+
+  <div class="item-row veste-row" data-ref="TVBOSCH26S1XXL" data-produit="VESTE TAILLE XXL">
+    <div class="item-info"><span>VESTE TAILLE XXL — Réf : TVBOSCH26S1XXL</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+
+  <div class="item-row veste-row" data-ref="TVBOSCH26S1SXXXL" data-produit="VESTE TAILLE XXXL">
+    <div class="item-info"><span>VESTE TAILLE XXXL — Réf : TVBOSCH26S1SXXXL</span></div>
+    <div class="counter">
+      <button class="minus" type="button">−</button>
+      <span class="qty">0</span>
+      <button class="plus" type="button">+</button>
+    </div>
+  </div>
+` : '' }
+
+                <textarea class="comment" placeholder="Votre commentaire…"></textarea>
+                <div class="total-section">Total ${tab.name} : <span class="tab-total">0.00 €</span> | Qté : <span class="tab-qty">0</span></div>
+              </div>`;
+          });
+    
+          const cont = document.getElementById('tabs-container');
+          cont.innerHTML = html;
+
+document.getElementById('main-nav').onclick = e => {
+            if (!e.target.matches('.tab-btn')) return;
+            document.querySelector('.tab-btn.active')?.classList.remove('active');
+            e.target.classList.add('active');
+            updateSubNav(e.target.dataset.tab);
+          };
+          updateSubNav('batterie');
+    
+          initAutocomplete();
+    
+          document.querySelectorAll('.comment').forEach(txt => {
+            const resize = () => { txt.style.height = 'auto'; txt.style.height = txt.scrollHeight+'px'; };
+            txt.addEventListener('input', resize); resize();
+          });
+    
+          document.addEventListener('input', e => {
+            if (e.target.closest('.promodurand-row') || e.target.closest('.points-extra-row')) {
+              recalcTab(e.target.closest('.tab-content'));
+            }
+          });
+
+document.querySelectorAll('.search-input').forEach(input => {
+            input.addEventListener('input', function() {
+              const val = this.value.trim().toLowerCase();
+              const tab = this.closest('.tab-content');
+              tab.querySelectorAll('.item-row').forEach(row => {
+                if (
+  row.classList.contains('promodurand-row') ||
+  row.classList.contains('points-extra-row') ||
+  row.classList.contains('veste-row') ||
+  row.classList.contains('offerte-row')
+) return;
+                const ref = (row.dataset.ref || '').toLowerCase();
+                const prod = (row.dataset.produit || '').toLowerCase();
+                row.style.display = (ref.includes(val) || prod.includes(val)) ? '' : 'none';
+              });
+            });
+          });
+    
+          document.addEventListener('click', (e)=>{
+            const btn = e.target.closest('.add-line-btn');
+            if (!btn) return;
+            const tabId = btn.getAttribute('data-tab');
+            const tabEl = document.getElementById(tabId);
+    
+            const node = document.createElement('div');
+            node.innerHTML = createManualRowHTML(tabId);
+            const row = node.firstElementChild;
+    
+            const beforeEl = tabEl.querySelector('.promodurand-row') || tabEl.querySelector('.points-extra-row') || tabEl.querySelector('.comment');
+            tabEl.insertBefore(row, beforeEl);
+    
+            attachManualRowEvents(row, tabEl);
+            recalcTab(tabEl);
+          });
+    
+          document.querySelectorAll('.tab-content').forEach(recalcTab);
+    
+          document.getElementById('send-order').onclick = async () => {
+            const hasQty = [...document.querySelectorAll('.tab-content .item-row:not(.promodurand-row):not(.points-extra-row):not(.veste-row):not(.offerte-row)')]
+              .some(r => getRowTotalQty(r) > 0);
+const hasExtras = (
+  [...document.querySelectorAll('.promodurand-row input, .points-extra-row input')].some(inp => Number(inp.value) > 0)
+  || [...document.querySelectorAll('.veste-row .qty, .offerte-row .qty')].some(s => Number(s.textContent) > 0)
+);
+    
+            const status = document.getElementById('status');
+            status.textContent = '';
+            if (!(hasQty || hasExtras))
+              return status.textContent = '❌ Sélectionnez au moins un produit.';
+            if (!document.getElementById('salesperson').value)
+              return status.textContent = '❌ Sélectionnez un commercial.';
+    
+            document.getElementById('send-order').disabled = true;
+            status.textContent = '⏳ Génération PDF…';
+            try {
+              const blob = await buildPdfBlob();
+              const b64  = await new Promise(r => {
+                const fr = new FileReader();
+                fr.onload = ()=> r(fr.result.split(',')[1]);
+                fr.readAsDataURL(blob);
+              });
+              const res = await fetch(SEND_ENDPOINT, {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({
+                  client: document.getElementById('client').value.trim(),
+                  salesperson: document.getElementById('salesperson').value,
+                  pdf: b64,
+                  form_origin: FORM_ORIGIN,
+                  order: collectOrderPayload()
+                })
+              });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const json = await res.json();
+              if (!json.success) throw new Error(json.message||'Erreur serveur');
+    
+              status.textContent = '✅ Envoyé avec succès !';
+    
+              document.getElementById('client').value = '';
+              selectedClient = null; selectedClientLabel = '';
+              document.getElementById('discount-info').textContent = '';
+              document.getElementById('salesperson').value = '';
+              document.getElementById('global-comment').value = '';
+              document.querySelectorAll('.item-row').forEach(row=>{
+                const tabEl = row.closest('.tab-content');
+                if (row.classList.contains('manual-row')) {
+                  row.remove();
+                  return;
+                }
+                if (tabEl && isBatteryTab(tabEl.id)) {
+                  row.querySelectorAll('.mqty').forEach(s=>s.textContent='0');
+                  const hidden = row.querySelector('.qty'); if (hidden) hidden.textContent='0';
+                } else {
+                  const q = row.querySelector('.qty'); if (q) q.textContent='0';
+                }
+              });
+              document.querySelectorAll('.comment').forEach(txt => { txt.value = ''; });
+              document.querySelectorAll('.promodurand-row input, .points-extra-row input').forEach(inp => inp.value = 0);
+              document.querySelectorAll('.veste-row .qty, .offerte-row .qty').forEach(s => s.textContent = '0');
+              document.querySelectorAll('.tab-content').forEach(recalcTab);
+            } catch(err) {
+              console.error(err);
+              status.textContent = `❌ Échec : ${err.message}`;
+            } finally {
+              document.getElementById('send-order').disabled = false;
+            }
+          };
+        
+  } catch (err) {
+    console.error('Erreur chargement données:', err);
+    const status = document.getElementById('status');
+    if (status) status.textContent = '❌ Erreur chargement des données.';
+  } finally {
+    hideLoading();
+  }
+});
+</script>
+</body>
+</html>

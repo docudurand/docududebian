@@ -13,7 +13,7 @@ const router = express.Router();
 const ftpCheck = ftpStorage.checkFtpConfig();
 if (!ftpCheck.ok) {
   console.error('[PRET-VEHICULE] Configuration FTP manquante:', ftpCheck.error);
-  console.error('[PRET-VEHICULE] Assurez-vous que FTP_HOST, FTP_USER, FTP_PASSWORD sont définis');
+  console.error('[PRET-VEHICULE] Assurez-vous que FTP_HOST, FTP_USER, FTP_PASS/FTP_PASSWORD sont définis');
 }
 
 // Liste des vehicules disponibles

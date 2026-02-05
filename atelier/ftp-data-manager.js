@@ -9,7 +9,7 @@ class FTPDataManager {
       host: process.env.FTP_HOST || "",
       port: parseInt(process.env.FTP_PORT || "21"),
       user: process.env.FTP_USER || "",
-      password: process.env.FTP_PASSWORD || "",
+      password: process.env.FTP_PASS || process.env.FTP_PASSWORD || "",
       secure: process.env.FTP_SECURE === "true",
       tlsInsecure: process.env.FTP_TLS_INSECURE === "1",
       tlsRejectUnauth: process.env.FTP_TLS_REJECT_UNAUTH !== "0"

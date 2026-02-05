@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Bon de Commande LUB</title>
+  <style>
+    html, body { margin:0; padding:0; width:100%; box-sizing:border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    .container { padding:0.2rem; background:#f9fafb; color:#111827; font-family:Arial,sans-serif; }
+    .sous-titre { text-align:center; font-size:1.05rem; color:#333; margin-bottom:0.4rem; }
+    h1 { text-align:center; font-size:1.25rem; margin-bottom:0.3rem; }
+
+    input, select { width:100%; padding:0.5rem; margin-bottom:0.65rem; border:1px solid #d1d5db; border-radius:6px; font-size:0.9rem; background:#fff; }
+    select#salesperson { font-size: 1.1rem; font-weight: bold; padding: 0.7rem; }
+    #client { font-size: 1.1rem; font-weight: bold; padding: 0.7rem; }
+
+    nav { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.55rem; }
+    nav button { flex:1 1 calc(50% - .4rem); padding:.5rem; font-size:1.05rem; border:none; border-radius:6px; background:#e5e7eb; cursor:pointer; transition:background .2s; }
+    nav button.active, nav button:hover { background:#4caf50; color:#fff; font-weight:bold; }
+
+    #sub-nav { display:none; flex-wrap:wrap; gap:0.3rem; margin-bottom:0.5rem; }
+    #sub-nav button { flex:1 1 calc(50% - .3rem); padding:.5rem; font-size:1.05rem; border:none; border-radius:6px; background:#d1d5db; cursor:pointer; transition:background .2s; }
+    #sub-nav button.active, #sub-nav button:hover { background:#2196f3; color:#fff; font-weight:bold; }
+
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+
+    .item-row { display:grid; grid-template-columns:1fr auto; gap:.5rem; padding:.5rem; margin-bottom:.5rem; background:#fff; border:1px solid #d1d5db; border-radius:4px; align-items:center; transition: background 0.4s; }
+    .item-info { display:flex; flex-direction:column; gap:.25rem; }
+    .item-info span { font-size:1.2rem; }
+    .unit-price, .line-total { font-weight:bold; }
+
+    .counter { display:flex; align-items:center; gap:.3rem; }
+    .counter button { border:none; border-radius:4px; background:#d1d5db; font-weight:bold; cursor:pointer; width:44px; height:44px; font-size:2rem; display:flex; align-items:center; justify-content:center; }
+    .counter .qty { font-size: 1.2rem; font-weight: bold; min-width: 1.4em; text-align: center; display: inline-block; }
+
+    .manual-row .item-info { gap:.4rem; }
+    .manual-fields { display:flex; gap:.4rem; flex-wrap:wrap; }
+    .manual-fields input[type="text"]{ flex:2; min-width: 160px; }
+    .manual-fields input[type="number"]{ flex:1; min-width: 120px; }
+
+    .search-input { width: 100%; margin-bottom: .65rem; padding: .6rem; font-size: 1rem; border: 1.5px solid #8ca7c7; border-radius: 6px; background: #fff; }
+    .section-title { font-weight: bold; background: #e8e9f1; color: #1a2251; padding: 7px 12px; border-radius: 6px; margin: 12px 0 5px 0; font-size: 1.1rem; letter-spacing: 0.02em; border-left: 3px solid #2563eb; }
+
+    .add-line-bar { display:flex; justify-content:flex-end; margin:.4rem 0 .2rem 0; }
+    .add-line-btn {
+      padding:.45rem .7rem; border:1px dashed #60a5fa; background:#eff6ff; color:#1a2251;
+      border-radius:8px; font-weight:700; cursor:pointer;
+    }
+    .add-line-btn:hover { background:#dbeafe; }
+
+    textarea.comment { width:100%; padding:.5rem; margin:.5rem 0; border:1px solid #d1d5db; border-radius:6px; font-size:.95rem; line-height:1.4; resize:none; overflow:hidden; min-height:6rem; background:#fff; }
+    .total-section { font-weight:bold; margin:.5rem 0; font-size:1.2rem; }
+    #global-total { font-size:1.2rem; }
+    #send-order { width:100%; padding:.6rem; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:1.2rem; cursor:pointer; transition:background .2s; }
+    #send-order:hover { background:#1d4ed8; }
+    #status { margin-top:.5rem; text-align:center; font-size:1rem; }
+
+    .client-wrap { position: relative; }
+    .client-autocomplete {
+      position:absolute; top:100%; left:0; right:0; z-index: 9999;
+      background:#fff; border:1px solid #cbd5e1; border-top:none; border-radius:0 0 6px 6px;
+      max-height: 240px; overflow:auto; display:none;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+    .client-autocomplete .item { padding:.45rem .6rem; cursor:pointer; display:flex; justify-content:space-between; gap:.8rem; align-items:center; }
+    .client-autocomplete .item:hover { background:#f1f5f9; }
+    .client-autocomplete .num { font-weight:700; color:#0f172a; min-width: 84px; }
+    .client-autocomplete .nom { color:#334155; flex:1; }
+  
+.loading-overlay{
+  position:fixed; inset:0;
+  background:rgba(249,250,251,.85);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:20000;
+}
+.loading-overlay.show{ display:flex; }
+
+.loading-box{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:.6rem;
+  padding:1rem 1.2rem;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+
+.spinner{
+  width:48px; height:48px;
+  border:5px solid #cbd5e1;
+  border-top-color:#2563eb;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+
+.loading-text{
+  font-weight:700;
+  color:#111827;
+}
+
+</style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+<div id="loading" class="loading-overlay" aria-hidden="true">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text">Chargement des données…</div>
+  </div>
+</div>
+
+  <div class="container">
+    <h1>DURAND SERVICES</h1>
+    <p class="sous-titre">LUB 2026</p>
+
+    <div class="client-wrap">
+      <input id="client" type="text" placeholder="Nom du client" autocomplete="off">
+      <div id="client-list" class="client-autocomplete"></div>
+    </div>
+
+    <select id="salesperson">
+      <option value="">-- Sélectionnez un commercial --</option>
+      <option value="Casti Jeremy">Casti Jeremy</option>
+      <option value="Trenti Anthony">Trenti Anthony</option>
+      <option value="Bazoge Ilona">Bazoge Ilona</option>
+      <option value="Barret Olivier">Barret Olivier</option>
+      <option value="Remond Nicolas">Remond Nicolas</option>
+    </select>
+
+    <nav id="main-nav">
+      <button class="tab-btn active" data-brand="YACCO">YACCO</button>
+      <button class="tab-btn" data-brand="MANNOL">MANNOL</button>
+      <button class="tab-btn" data-brand="CASTROL">CASTROL</button>
+      <button class="tab-btn" data-brand="SHELL">SHELL</button>
+    </nav>
+
+    <div id="sub-nav"></div>
+    <div id="tabs-container"></div>
+
+    <div class="total-section">Montant total : <span id="global-total">0.00 €</span></div>
+    <textarea id="global-comment" class="comment" placeholder="Votre commentaire global..."></textarea>
+
+    <button id="send-order" type="button">Envoyer le bon de commande 📧</button>
+    <p id="status"></p>
+  </div>
+
+<script>
+const SHEET_API_URL = 'https://mes-formulaires.onrender.com/api/sheets/televente-lub';
+const SEND_ENDPOINT  = 'https://mes-formulaires.onrender.com/formtelevente/send-order';
+const FORM_ORIGIN    = 'televente LUB 2026';
+
+function showLoading(msg){
+  const o = document.getElementById('loading');
+  if (!o) return;
+  const t = o.querySelector('.loading-text');
+  if (t && msg) t.textContent = msg;
+  o.classList.add('show');
+}
+function hideLoading(){
+  const o = document.getElementById('loading');
+  if (!o) return;
+  o.classList.remove('show');
+}
+
+const SUBS_BY_BRAND = {
+  YACCO: [
+    { id:'fut-208l',     label:'FÛT 208L' },
+    { id:'tonnelet-60l', label:'TONNELET 60L' },
+    { id:'20l-boite',    label:'20L HUILE BOITE' },
+    { id:'1l-2l-5l',     label:'1L -2L -5L', isLitres:true }
+  ],
+  MANNOL: [
+    { id:'fut-208l',     label:'FÛT 208L' },
+    { id:'tonnelet-60l', label:'TONNELET 60L' },
+    { id:'5l',           label:'5L', isLitres:true, sheetName:'MANNOL 5L' }
+  ],
+  CASTROL: [
+    { id:'fut-208l',     label:'FÛT 208L' },
+    { id:'tonnelet-60l', label:'TONNELET 60L' },
+    { id:'20l',          label:'20L' },
+    { id:'1l-2l-5l',     label:'1L -2L -5L', isLitres:true }
+  ],
+  SHELL: [
+    { id:'fut-208l',     label:'FÛT 208L' },
+    { id:'20l',          label:'20L' }
+  ]
+};
+
+const BRANDS = Object.keys(SUBS_BY_BRAND);
+const tabId = (brand, subId) => `${brand.toLowerCase()}-${subId}`;
+const sheetNameFor = (brand, sub) => sub.sheetName || `${brand} - ${sub.label}`;
+
+let DATA = {};
+let CLIENTS = [];
+let selectedClient = null;
+let selectedClientLabel = '';
+
+function toNum(v) {
+  if (v == null) return 0;
+  let s = String(v).trim().replace(/\u00A0/g, ' ').replace(/\s/g, '');
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if (lastComma > -1 && lastDot > -1) {
+    s = lastComma > lastDot ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (lastComma > -1) s = s.replace(',', '.');
+  else if (lastDot > -1 && /^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = Number(s); return isNaN(n) ? 0 : n;
+}
+function normalize(s){ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+
+async function loadClients() {
+  try {
+    const res = await fetch(SHEET_API_URL + '?table=clients');
+    const data = await res.json();
+    CLIENTS = Array.isArray(data) ? data : [];
+  } catch(e) { CLIENTS = []; }
+}
+function initAutocomplete() {
+  const input = document.getElementById('client');
+  const list  = document.getElementById('client-list');
+  function hide() { list.style.display = 'none'; list.innerHTML = ''; }
+  function show(items) {
+    list.innerHTML = items.map(c => `
+      <div class="item" data-num="${(c.numero||'').replace(/"/g,'&quot;')}">
+        <span class="num">${c.numero || '—'}</span>
+        <span class="nom">${c.nom || ''}</span>
+      </div>`).join('');
+    list.style.display = items.length ? 'block' : 'none';
+  }
+  input.addEventListener('input', () => {
+    const q = normalize(input.value.trim());
+    if (!q) { hide(); selectedClient=null; selectedClientLabel=''; return; }
+    const matches = CLIENTS.filter(c =>
+      normalize(c.numero).includes(q) || normalize(c.nom).includes(q)
+    ).slice(0,30);
+    show(matches);
+  });
+  list.addEventListener('click', (e) => {
+    const item = e.target.closest('.item');
+    if (!item) return;
+    const num = item.getAttribute('data-num');
+    const c = CLIENTS.find(x => String(x.numero) === String(num));
+    if (c) {
+      selectedClient = c;
+      selectedClientLabel = `${c.numero} ${c.nom}`.trim();
+      input.value = selectedClientLabel;
+    }
+    hide();
+  });
+  input.addEventListener('change', () => {
+    if (input.value.trim() !== selectedClientLabel) { selectedClient = null; selectedClientLabel = ''; }
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.client-wrap')) hide(); });
+}
+
+async function loadProducts() {
+  const res = await fetch(SHEET_API_URL);
+  const rows = await res.json();
+  const grouped = {};
+  rows.forEach(r => {
+    const key = String(r.onglet || '').trim();
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({
+      reference: r.reference ?? '',
+      designation: r.designation ?? '',
+      'prix promo ht': r['prix promo ht'] ?? '',
+      'prix promo carton ht': r['prix promo carton ht'] ?? '',
+      'contenance carton': r['contenance carton'] ?? '',
+      idtitle: r.idtitle ?? r.istitle ?? ''
+    });
+  });
+  DATA = grouped;
+}
+
+function buildSubNav(brand) {
+  const sub = document.getElementById('sub-nav');
+  sub.innerHTML = '';
+  sub.style.display = 'flex';
+  const subs = SUBS_BY_BRAND[brand] || [];
+  subs.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = s.label;
+    btn.className = 'sub-tab-btn' + (i === 0 ? ' active':'');
+    btn.dataset.tab = tabId(brand, s.id);
+    btn.onclick = () => {
+      sub.querySelector('.sub-tab-btn.active')?.classList.remove('active');
+      btn.classList.add('active');
+      showTab(btn.dataset.tab);
+    };
+    sub.appendChild(btn);
+  });
+}
+
+function buildAllTabContents() {
+  const wrap = document.getElementById('tabs-container');
+  let html = '';
+  BRANDS.forEach(brand => {
+    const subs = SUBS_BY_BRAND[brand] || [];
+    subs.forEach(s => {
+      const id = tabId(brand, s.id);
+      const sheetName = sheetNameFor(brand, s);
+      const rows = DATA[sheetName] || [];
+      html += `
+  <div class="tab-content" id="${id}">
+    <h2>${brand} — ${s.label}</h2>
+    <input type="text" class="search-input" placeholder="🔍 Recherche produit/réf...">
+    ${rows.map((r) => {
+      if ((r.idtitle || '').trim().toLowerCase() === 'oui') {
+        return `<div class="section-title">${r.designation || r.reference || ''}</div>`;
+      }
+      const isLitres = !!s.isLitres;
+      const ref = r.reference || '';
+      const des = r.designation || '';
+      const puNormal = toNum(r['prix promo ht']);
+      const puCarton = toNum(r['prix promo carton ht']);
+      const pu = isLitres ? (puNormal || puCarton) : puNormal;
+      const cont = isLitres ? (r['contenance carton'] || '') : '';
+      const pucDisplay = isLitres ? (isNaN(puCarton) || puCarton === 0 ? '—' : puCarton.toFixed(2)) : '';
+
+      return `
+        <div class="item-row"
+            data-ref="${ref}"
+            data-produit="${des}"
+            data-price="${pu}"
+            ${isLitres ? `data-pucarton="${pucDisplay}" data-contenance="${cont}"` : ''}>
+          <div class="item-info">
+            <span>Réf : ${ref}${des ? ' | Produit : ' + des : ''}</span>
+            <span>
+              PU : <span class="unit-price">${pu.toFixed(2)}</span> €${isLitres ? ` | Contenance : ${cont || '—'}` : ''}
+            </span>
+          </div>
+          <div class="counter">
+            <button class="minus" type="button">−</button>
+            <span class="qty">0</span>
+            <button class="plus" type="button">+</button>
+          </div>
+        </div>`;
+    }).join('')}
+    <div class="add-line-bar">
+      <button class="add-line-btn" data-tab="${id}" type="button">+ Ajouter une ligne</button>
+    </div>
+    <textarea class="comment" placeholder="Votre commentaire…"></textarea>
+    <div class="total-section">Total ${brand} — ${s.label} :
+      <span class="tab-total">0.00 €</span> | Qté : <span class="tab-qty">0</span>
+    </div>
+  </div>`;
+    });
+  });
+  wrap.innerHTML = html;
+  showTab(tabId('YACCO', (SUBS_BY_BRAND.YACCO?.[0]||{}).id));
+  attachTabEvents();
+}
+
+function showTab(id) {
+  document.querySelectorAll('.tab-content.active').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+  recalcTab(document.getElementById(id));
+}
+
+function recalcTab(tabEl) {
+  if (!tabEl) return;
+  let sum=0, tot=0;
+  tabEl.querySelectorAll('.item-row').forEach(r=>{
+    const q=+r.querySelector('.qty').textContent||0;
+    const pu=+r.dataset.price||0;
+    sum+=q; tot+=q*pu;
+    const up = r.querySelector('.unit-price');
+    if (up) up.textContent=pu.toFixed(2);
+  });
+  tabEl.querySelector('.tab-qty').textContent=sum;
+  tabEl.querySelector('.tab-total').textContent=tot.toFixed(2)+' €';
+  recalcGlobal();
+}
+function recalcGlobal() {
+  let g=0;
+  document.querySelectorAll('.tab-content').forEach(tab=>{
+    tab.querySelectorAll('.item-row').forEach(r=>{
+      const q=+r.querySelector('.qty').textContent||0;
+      const p=+r.dataset.price||0;
+      g+=q*p;
+    });
+  });
+  document.getElementById('global-total').textContent=g.toFixed(2)+' €';
+}
+
+function createManualRowHTML() {
+  return `
+    <div class="item-row manual-row" data-ref="" data-produit="" data-price="0" data-pucarton="" data-contenance="">
+      <div class="item-info">
+        <div class="manual-fields">
+          <input type="text" class="manual-ref" placeholder="Réf " />
+          <input type="text" class="manual-prod" placeholder="Produit " />
+          <input type="number" min="0" step="0.01" class="manual-price" placeholder="PU (€)" />
+        </div>
+        <span>PU : <span class="unit-price">0.00</span> €</span>
+      </div>
+      <div class="counter">
+        <button class="minus" type="button">−</button>
+        <span class="qty">0</span>
+        <button class="plus" type="button">+</button>
+      </div>
+    </div>
+  `;
+}
+function attachManualRowEvents(row, tabEl) {
+  const refInput   = row.querySelector('.manual-ref');
+  const prodInput  = row.querySelector('.manual-prod');
+  const priceInput = row.querySelector('.manual-price');
+  const unitPrice  = row.querySelector('.unit-price');
+  const qtyEl      = row.querySelector('.qty');
+
+  const updateData = () => {
+    row.dataset.ref     = (refInput.value || '').trim();
+    row.dataset.produit = (prodInput.value || '').trim();
+
+    const v    = String(priceInput.value || '').replace(',', '.');
+    const num  = parseFloat(v);
+    const safe = isNaN(num) ? 0 : num;
+
+    row.dataset.price = String(safe);
+    unitPrice.textContent = safe.toFixed(2);
+
+    if (safe > 0 && (+qtyEl.textContent || 0) === 0) {
+      qtyEl.textContent = '1';
+    }
+
+    recalcTab(tabEl);
+  };
+
+  refInput.addEventListener('input', updateData);
+  prodInput.addEventListener('input', updateData);
+  priceInput.addEventListener('input', updateData);
+
+  priceInput.addEventListener('blur', () => {
+    const v    = String(priceInput.value || '').replace(',', '.');
+    const num  = parseFloat(v);
+    const safe = isNaN(num) ? 0 : num;
+    priceInput.value = safe ? safe.toString() : '';
+    unitPrice.textContent = safe.toFixed(2);
+  });
+}
+
+async function buildPdfBlob() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+
+  const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
+  const MARGIN_TOP = 15, MARGIN_BOTTOM = 15;
+
+  try {
+    const logoUrl = "https://i.postimg.cc/FsgLstVW/logo.png";
+    const resp = await fetch(logoUrl);
+    const blob = await resp.blob();
+    const base64 = await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onloadend = () => resolve(fr.result);
+      fr.readAsDataURL(blob);
+    });
+    doc.addImage(base64, 'PNG', 12, 8, 55, 0);
+  } catch (e) {
+    console.warn('Logo introuvable', e);
+  }
+
+  let y = MARGIN_TOP + 20;
+  doc.setFontSize(16);
+  doc.text('Bon de Commande LUB', 105, y, { align:'center' });
+  y += 10;
+
+  doc.setFontSize(11);
+  const dateStr = new Date().toLocaleDateString('fr-FR');
+  const comm = document.getElementById('salesperson').value || '—';
+  const clientLabel = document.getElementById('client').value || '—';
+  doc.text(`Date : ${dateStr}`, 15, y); y += 6;
+  doc.text(`Commercial : ${comm}`, 15, y); y += 6;
+  doc.text(`Client : ${clientLabel}`, 15, y); y += 10;
+
+  for (const brand of BRANDS) {
+    const subs = SUBS_BY_BRAND[brand] || [];
+    for (const s of subs) {
+      const id = tabId(brand, s.id);
+      const tab = document.getElementById(id);
+      const rows = [...tab.querySelectorAll('.item-row')].filter(r => (+r.querySelector('.qty').textContent) > 0);
+      const comment = (tab.querySelector('.comment')?.value || '').trim();
+      if (!rows.length && !comment) continue;
+
+      if (y + 12 > PAGE_HEIGHT - MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+      doc.setFontSize(16);
+      doc.text(`${brand} — ${s.label}`, 15, y);
+      y += 6;
+
+      if (rows.length) {
+        const isLitres = !!s.isLitres;
+        const head = isLitres
+          ? [['Réf','Produit','PU (€)','Qté','Total (€)','Cont. Carton']]
+          : [['Réf','Produit','PU (€)','Qté','Total (€)']];
+
+        const body = rows.map(r => {
+          const isManual = r.classList.contains('manual-row');
+          const ref  = isManual ? (r.dataset.ref || '') : (r.dataset.ref || '');
+          const prod = isManual ? (r.dataset.produit || '') : (r.dataset.produit || '');
+          const pu   = +(r.dataset.price||0);
+          const q    = +(r.querySelector('.qty').textContent||0);
+          const tot  = (pu*q).toFixed(2);
+          if (isLitres) {
+            const cont= isManual ? '—' : (r.dataset.contenance || '—');
+            return [ref, prod, pu.toFixed(2), q, tot, cont];
+          }
+          return [ref, prod, pu.toFixed(2), q, tot];
+        });
+
+        doc.autoTable({
+          head, body,
+          startY: y,
+          styles: { fontSize:10, halign:'center' },
+          headStyles: { fillColor:[79,92,102] },
+          theme: 'grid',
+          margin: { left:15, right:15 }
+        });
+
+        y = (doc.lastAutoTable?.finalY || y) + 12;
+      }
+
+      const tTot = tab.querySelector('.tab-total').textContent.replace(' €','');
+      const tQty = tab.querySelector('.tab-qty').textContent;
+
+      if (y + 10 > PAGE_HEIGHT - MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+      doc.setFontSize(11);
+      doc.text(`Total ${brand} — ${s.label} : ${tTot} € | Qté : ${tQty}`, 15, y);
+      y += 8;
+
+      if (comment) {
+        const lines = doc.splitTextToSize('Commentaire : ' + comment, 180);
+        const boxH = lines.length * 5 + 7;
+        if (y + boxH > PAGE_HEIGHT - MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+        doc.rect(13, y - 4, 184, boxH);
+        doc.text(lines, 15, y);
+        y += boxH + 8;
+      } else {
+        y += 4;
+      }
+    }
+  }
+
+  let globalTotal = 0;
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.querySelectorAll('.item-row').forEach(r => {
+      const q = +r.querySelector('.qty').textContent || 0;
+      const p = +r.dataset.price || 0;
+      globalTotal += q*p;
+    });
+  });
+  if (y + 12 > PAGE_HEIGHT - MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+  doc.setFontSize(16);
+  doc.text(`Montant total : ${globalTotal.toFixed(2)} €`, 15, y);
+  y += 10;
+
+  const globalComment = (document.getElementById('global-comment').value || '').trim();
+  if (globalComment) {
+    const lines = doc.splitTextToSize('Commentaire global : ' + globalComment, 180);
+    const boxH = lines.length * 5 + 7;
+    if (y + boxH > PAGE_HEIGHT - MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; }
+    doc.setFontSize(11);
+    doc.rect(13, y - 4, 184, boxH);
+    doc.text(lines, 15, y);
+  }
+
+  const blob = doc.output('blob');
+  blob.name = 'Bon_de_Commande_Huiles.pdf';
+  return blob;
+}
+
+function attachTabEvents() {
+  document.querySelectorAll('.search-input').forEach(input => {
+    input.addEventListener('input', function() {
+      const val = (this.value || '').toLowerCase();
+      const tab = this.closest('.tab-content');
+      tab.querySelectorAll('.item-row').forEach(row => {
+        const ref  = (row.dataset.ref || '').toLowerCase();
+        const prod = (row.dataset.produit || '').toLowerCase();
+        row.style.display = (ref.includes(val) || prod.includes(val)) ? '' : 'none';
+      });
+    });
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.matches('.plus, .minus')) return;
+    const span = e.target.closest('.counter').querySelector('.qty');
+    let q = +span.textContent;
+    q = e.target.classList.contains('plus') ? q+1 : q-1;
+    span.textContent = Math.max(0, q);
+    recalcTab(e.target.closest('.tab-content'));
+  });
+
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.add-line-btn');
+    if (!btn) return;
+    const tabIdStr = btn.getAttribute('data-tab');
+    const tabEl = document.getElementById(tabIdStr);
+
+    const node = document.createElement('div');
+    node.innerHTML = createManualRowHTML();
+    const row = node.firstElementChild;
+
+    const beforeEl = tabEl.querySelector('.comment') || tabEl.querySelector('.total-section');
+    tabEl.insertBefore(row, beforeEl);
+
+    attachManualRowEvents(row, tabEl);
+    recalcTab(tabEl);
+  });
+
+  document.querySelectorAll('.comment').forEach(txt => {
+    const resize = () => { txt.style.height='auto'; txt.style.height = txt.scrollHeight+'px'; };
+    txt.addEventListener('input', resize);
+    resize();
+  });
+
+  document.querySelectorAll('.tab-content').forEach(recalcTab);
+}
+
+function resetForm() {
+  const clientInput = document.getElementById('client');
+  clientInput.value = '';
+  selectedClient = null;
+  selectedClientLabel = '';
+  document.getElementById('salesperson').value = '';
+
+  const globalComment = document.getElementById('global-comment');
+  if (globalComment) { globalComment.value = ''; globalComment.style.height = 'auto'; }
+  document.querySelectorAll('.comment').forEach(txt => { txt.value = ''; txt.style.height = 'auto'; });
+
+  document.querySelectorAll('.manual-row').forEach(row => row.remove());
+  document.querySelectorAll('.qty').forEach(span => { span.textContent = '0'; });
+
+  document.querySelectorAll('.search-input').forEach(input => {
+    input.value = '';
+    const tab = input.closest('.tab-content');
+    tab?.querySelectorAll('.item-row').forEach(row => row.style.display = '');
+  });
+
+  document.querySelectorAll('.tab-content').forEach(recalcTab);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function parseMoney(text){
+  const s = String(text || '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/[^\d,.\-]/g, '')
+    .trim();
+  if (!s) return 0;
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+  if (hasComma && hasDot) {
+    return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  if (hasComma) return Number(s.replace(',', '.')) || 0;
+  return Number(s) || 0;
+}
+
+function collectOrderPayload(){
+  const lines = [];
+  const byTab = {};
+
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    const tabId = tab.id || '';
+    const tabLabel = tab.querySelector('h2')?.textContent || tabId;
+    const comment = (tab.querySelector('.comment')?.value || '').trim();
+    if (comment) byTab[tabId] = comment;
+
+    tab.querySelectorAll('.item-row').forEach(row => {
+      const qtyEl = row.querySelector('.qty');
+      const qty = qtyEl ? (+qtyEl.textContent || 0) : 0;
+      if (qty <= 0) return;
+      const ref = row.dataset.ref || '';
+      const produit = row.dataset.produit || '';
+      const pu = Number(row.dataset.price || row.querySelector('.unit-price')?.textContent || 0) || 0;
+      const contenance = row.dataset.contenance || '';
+      const isLitres = !!row.dataset.contenance;
+      lines.push({ tab: tabId, tabLabel, ref, produit, pu, qty, contenance, isLitres });
+    });
+  });
+
+  return {
+    origin: FORM_ORIGIN,
+    client: document.getElementById('client').value.trim(),
+    salesperson: document.getElementById('salesperson').value,
+    currency: 'EUR',
+    total: parseMoney(document.getElementById('global-total').textContent),
+    comments: {
+      global: (document.getElementById('global-comment').value || '').trim(),
+      byTab
+    },
+    lines
+  };
+}
+
+async function sendOrDownloadPDF() {
+  const status = document.getElementById('status');
+  status.textContent = '⏳ Génération PDF…';
+  try {
+    const blob = await buildPdfBlob();
+
+    if (SEND_ENDPOINT) {
+      const b64 = await new Promise(r => {
+        const fr = new FileReader();
+        fr.onload = ()=> r(fr.result.split(',')[1]);
+        fr.readAsDataURL(blob);
+      });
+      const res = await fetch(SEND_ENDPOINT, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          client: document.getElementById('client').value.trim(),
+          salesperson: document.getElementById('salesperson').value,
+          pdf: b64,
+          form_origin: FORM_ORIGIN,
+          order: collectOrderPayload()
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await res.json().catch(()=>({success:true}));
+      status.textContent = '✅ Envoyé avec succès !';
+      resetForm();
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = blob.name || 'Bon_de_Commande_Huiles.pdf';
+      a.click(); URL.revokeObjectURL(url);
+      status.textContent = '✅ PDF téléchargé.';
+      resetForm();
+    }
+  } catch(err) {
+    console.error(err);
+    document.getElementById('status').textContent = `❌ Échec : ${err.message||'Erreur'}`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('main-nav').addEventListener('click', (e) => {
+    if (!e.target.matches('.tab-btn')) return;
+    document.querySelector('.tab-btn.active')?.classList.remove('active');
+    e.target.classList.add('active');
+    const brand = e.target.dataset.brand;
+    buildSubNav(brand);
+    const first = SUBS_BY_BRAND[brand]?.[0];
+    if (first) showTab(tabId(brand, first.id));
+  });
+
+  showLoading('Chargement des données…');
+  try {
+    await Promise.all([loadClients(), loadProducts()]);
+    buildSubNav('YACCO');
+    buildAllTabContents();
+  } catch (err) {
+    console.error('Erreur chargement données:', err);
+    const status = document.getElementById('status');
+    if (status) status.textContent = '❌ Erreur chargement des données.';
+  } finally {
+    hideLoading();
+  }
+
+  document.getElementById('send-order').onclick = async () => {
+    const hasQty = [...document.querySelectorAll('.qty')].some(s=>+s.textContent>0);
+    const status = document.getElementById('status');
+    status.textContent = '';
+    if (!hasQty) return status.textContent = '❌ Sélectionnez au moins un produit.';
+    if (!document.getElementById('salesperson').value) return status.textContent = '❌ Sélectionnez un commercial.';
+    await sendOrDownloadPDF();
+  };
+
+  initAutocomplete();
+});
+</script>
+</body>
+</html>
