@@ -1,6 +1,4 @@
-sudo tee /var/www/documentsdurand/commerce/links.json > /dev/null <<'JSON'
 {
-  "televente_bosch": "/batterie-bosch.html",
-  "televente_lubrifiant": "/castrol"
+  "televenteBosch": "https://stalwart-alfajores-718fa7.netlify.app/",
+  "televenteLub": "https://iridescent-douhua-5999e1.netlify.app/"
 }
-JSON

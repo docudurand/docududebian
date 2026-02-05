@@ -80,8 +80,8 @@
           });
           if (!r.ok) continue;
           const data = await r.json();
-          const bosch = cleanUrl(data?.televenteBosch);
-          const lub = cleanUrl(data?.televenteLub);
+          const bosch = cleanUrl(data?.televenteBosch || data?.televente_bosch);
+          const lub = cleanUrl(data?.televenteLub || data?.televente_lub || data?.televente_lubrifiant);
           if (!bosch && !lub) continue;
           return { televenteBosch: bosch, televenteLub: lub };
         } catch (_) {
@@ -92,8 +92,8 @@
 
     fetchFirstOk().then((data) => {
       if (!data) return;
-      const bosch = cleanUrl(data?.televenteBosch);
-      const lub   = cleanUrl(data?.televenteLub);
+      const bosch = cleanUrl(data?.televenteBosch || data?.televente_bosch);
+      const lub   = cleanUrl(data?.televenteLub || data?.televente_lub || data?.televente_lubrifiant);
 
       document.querySelectorAll('[data-id]').forEach((btn) => {
         const id = btn.getAttribute('data-id');
