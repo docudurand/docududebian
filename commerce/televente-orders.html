@@ -19,14 +19,18 @@
     *{ box-sizing: border-box; }
     body{
       margin: 0;
+      width: 100%;
+      min-height: 100vh;
       font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
       background: var(--bg);
       color: var(--ink);
+      overflow-x: hidden;
     }
     .page{
-      max-width: 100%;
+      width: 100%;
+      max-width: none;
       margin: 0;
-      padding: 10px 14px;
+      padding: 12px 12px;
       min-height: 100vh;
     }
     .top{
@@ -35,7 +39,8 @@
       gap: 16px;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 18px;
+      margin-bottom: 12px;
+      width: 100%;
     }
     .title h1{
       margin: 0;
@@ -70,8 +75,9 @@
     }
     .layout{
       display: grid;
-      grid-template-columns: minmax(340px, 460px) 1fr;
-      gap: 14px;
+      width: 100%;
+      grid-template-columns: minmax(380px, 520px) minmax(520px, 1fr);
+      gap: 16px;
       align-items: start;
     }
     .panel{
@@ -79,7 +85,8 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 16px;
+      padding: 18px;
+      width: 100%;
     }
     .list-header{
       display: grid;
