@@ -410,6 +410,24 @@
       'liquide'
     ];
 
+    // ✅ Liste EXACTE demandée pour la colonne "Onglet" (Lub)
+    const ONGLET_OPTIONS_LUB = [
+      'yacco-fut-208l',
+      'yacco-tonnelet-60l',
+      'yacco-20l-boite',
+      'yacco-1l-2l-5l',
+      'mannol-fut-208l',
+      'mannol-tonnelet-60l',
+      'mannol-5l',
+      'castrol-fut-208l',
+      'castrol-tonnelet-60l',
+      'castrol-20l',
+      'castrol-1l-2l-5l',
+      'shell-fut-208l',
+      'shell-20l'
+    ];
+
+
     const BOSCH_TAB_LIST = [
       { id:'batteriekadeos',  name:'Batterie Bosch Kadeos' },
       { id:'batterietv',      name:'Batterie Bosch TV' },
@@ -605,6 +623,16 @@
       return `<select class="tabSelect">${opts}</select>`;
     }
 
+    function makeLubTabSelectHtml(value){
+      const current = (value || '').trim();
+      const opts = [
+        `<option value=""></option>`,
+        ...ONGLET_OPTIONS_LUB.map(id => `<option value="${escapeHtml(id)}"${id===current?' selected':''}>${escapeHtml(id)}</option>`)
+      ].join('');
+      return `<select class="tabSelectLub">${opts}</select>`;
+    }
+
+
     function appendLineRow(line){
       const tr = document.createElement('tr');
       const meta = {
@@ -616,10 +644,12 @@
       };
       tr.dataset.meta = JSON.stringify(meta);
 
-      // ✅ Onglet: select en Bosch / input en Lub (pour ne pas casser Lub)
+      // ✅ Onglet: select en Bosch et Lub (listes imposées)
       const ongletCell = (currentOrigin === 'bosch')
         ? makeBoschTabSelectHtml(line.tab || '')
-        : `<input class="tabInput" value="${escapeHtml(line.tab || '')}">`;
+        : (currentOrigin === 'lub')
+          ? makeLubTabSelectHtml(line.tab || '')
+          : `<input class="tabInput" value="${escapeHtml(line.tab || '')}">`;
 
       tr.innerHTML = `
         <td>${ongletCell}</td>
@@ -664,7 +694,7 @@
     function getLinesFromTable(){
       const lines = [];
       linesBody.querySelectorAll('tr').forEach(tr => {
-        const tabEl = tr.querySelector('.tabSelect') || tr.querySelector('.tabInput');
+        const tabEl = tr.querySelector('.tabSelect') || tr.querySelector('.tabSelectLub') || tr.querySelector('.tabInput');
         const refEl = tr.querySelector('.refInput');
         const prodEl = tr.querySelector('.prodInput');
         const puEl = tr.querySelector('.puInput');
