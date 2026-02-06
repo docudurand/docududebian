@@ -250,6 +250,57 @@
       .layout{ grid-template-columns: 1fr; }
       .orders{ max-height: none; }
     }
+	/* ===== TABLEAU LIGNES : LISIBILITÉ TABLETTE ===== */
+
+/* Taille globale des lignes */
+.lines table{ font-size: 16px !important; }
+.lines th{ font-size: 13px !important; }
+.lines td{ padding: 10px 6px !important; vertical-align: middle; }
+
+/* Inputs + selects plus grands */
+.lines td input,
+.lines td select{
+  font-size: 17px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  height: 44px !important;         /* taille “tap-friendly” */
+  line-height: 22px !important;
+}
+
+/* Colonnes : on donne de la place à ONGLET et RÉF (ce que tu vois mal) */
+.lines table th:nth-child(1),
+.lines table td:nth-child(1){
+  width: 160px !important;         /* ONGLET */
+}
+
+.lines table th:nth-child(2),
+.lines table td:nth-child(2){
+  width: 130px !important;         /* RÉF */
+}
+
+.lines table th:nth-child(3),
+.lines table td:nth-child(3){
+  width: 170px !important;         /* PRODUIT */
+}
+
+.lines table th:nth-child(4),
+.lines table td:nth-child(4){
+  width: 120px !important;         /* PU */
+}
+
+.lines table th:nth-child(5),
+.lines table td:nth-child(5){
+  width: 110px !important;         /* QTÉ */
+}
+
+/* Bouton supprimer plus lisible */
+.lines td .btnDanger,
+.lines td button{
+  font-size: 15px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  height: 44px !important;
+}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
