@@ -72,10 +72,9 @@ body{
   min-height: calc(100vh - 44px - 46px);
   position: relative;
 }
-/* iPad / tablette : on garde le padding, mais la frame reste pleine largeur */
 @media (max-width: 1024px){
-  .stage{ padding-left: 10px; padding-right: 10px; }
-}
+  .stage{ padding-left: 6px; padding-right: 6px; }
+  :root{ --ipadW: 100%; }
 }
 
 /* Vidéo accueil */
