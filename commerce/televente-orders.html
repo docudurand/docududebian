@@ -296,7 +296,20 @@
   border-radius: 12px !important;
   height: 44px !important;
 }
-</style>
+
+      /* ====== TABLEAU LIGNES : ONGLET CACHÉ (mais conservé pour le PDF) ====== */
+      #orderEditor .tabHidden{ display:none !important; }
+      #orderEditor table th:nth-child(1),
+      #orderEditor table td:nth-child(1){ display:none !important; }
+
+      /* Largeurs lisibles (tablette) pour les colonnes visibles : RÉF / PRODUIT / PU / QTÉ / TOTAL */
+      #orderEditor table th:nth-child(2), #orderEditor table td:nth-child(2){ width:140px !important; } /* Réf */
+      #orderEditor table th:nth-child(3), #orderEditor table td:nth-child(3){ width:260px !important; } /* Produit */
+      #orderEditor table th:nth-child(4), #orderEditor table td:nth-child(4){ width:110px !important; } /* PU */
+      #orderEditor table th:nth-child(5), #orderEditor table td:nth-child(5){ width:95px  !important; } /* Qté */
+      #orderEditor table th:nth-child(6), #orderEditor table td:nth-child(6){ width:120px !important; } /* Total */
+
+    </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
@@ -535,16 +548,25 @@
 
     function appendLineRow(line){
       const tr = document.createElement('tr');
+
+      // Onglet (tab) : on le conserve pour pouvoir regrouper correctement le PDF,
+      // mais on le cache dans le tableau (CSS). Pour une ligne ajoutée à la main,
+      // on reprend par défaut l'onglet de la commande (première ligne existante).
+      const defaultTab =
+        (line.tab && String(line.tab).trim()) ||
+        (currentOrder?.lines || []).map(l => (l?.tab || '').trim()).find(Boolean) ||
+        '';
+
       const meta = {
         months: line.months || null,
         contenance: line.contenance || '',
         isLitres: Boolean(line.isLitres),
-        tabLabel: line.tabLabel || '',
+        tabLabel: line.tabLabel || (currentOrder?.lines || []).map(l => l?.tabLabel).find(Boolean) || '',
         special: line.special || ''
       };
       tr.dataset.meta = JSON.stringify(meta);
       tr.innerHTML = `
-        <td><input value="${line.tab || ''}"></td>
+        <td><input class="tabHidden" value="${defaultTab}"></td>
         <td><input value="${line.ref || ''}"></td>
         <td><input value="${line.produit || ''}"></td>
         <td><input class="small" value="${Number(line.pu || 0).toFixed(2)}"></td>
@@ -583,7 +605,10 @@
       const lines = [];
       linesBody.querySelectorAll('tr').forEach(tr => {
         const inputs = tr.querySelectorAll('input');
-        const tab = inputs[0].value.trim();
+        let tab = inputs[0].value.trim();
+        if (!tab) {
+          tab = (currentOrder?.lines || []).map(l => (l?.tab || '').trim()).find(Boolean) || '';
+        }
         const ref = inputs[1].value.trim();
         const produit = inputs[2].value.trim();
         const pu = parseNumber(inputs[3].value);
@@ -610,7 +635,7 @@
             months,
             contenance: meta.contenance || '',
             isLitres: Boolean(meta.isLitres),
-            tabLabel: meta.tabLabel || tab,
+            tabLabel: meta.tabLabel || (currentOrder?.lines || []).map(l => l?.tabLabel).find(Boolean) || tab,
             special: meta.special || ''
           });
         }
