@@ -158,6 +158,30 @@ const SHEET_API_URL = '/api/sheets/televente-lub';
 const SEND_ENDPOINT = '/formtelevente/send-order';
 const FORM_ORIGIN    = 'televente LUB 2026';
 
+/* =========================
+   PATCH 413 (PDF trop gros)
+   - compression jsPDF
+   - cache logo (évite re-fetch + ré-encodage)
+   - garde-fou taille avant base64
+   ========================= */
+const MAX_PDF_BYTES = 8 * 1024 * 1024; // 8MB (ajuste si besoin)
+let LOGO_B64_CACHE = null;
+
+async function getLogoBase64() {
+  if (LOGO_B64_CACHE) return LOGO_B64_CACHE;
+  const logoUrl = "https://i.postimg.cc/FsgLstVW/logo.png";
+  const resp = await fetch(logoUrl);
+  const blob = await resp.blob();
+  const b64 = await new Promise((resolve) => {
+    const fr = new FileReader();
+    fr.onloadend = () => resolve(fr.result.split(',')[1]);
+    fr.readAsDataURL(blob);
+  });
+  LOGO_B64_CACHE = b64;
+  return b64;
+}
+
+
 function showLoading(msg){
   const o = document.getElementById('loading');
   if (!o) return;
@@ -450,21 +474,13 @@ function attachManualRowEvents(row, tabEl) {
 
 async function buildPdfBlob() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const doc = new jsPDF({ unit:'mm', format:'a4', compress: true });
 
   const PAGE_HEIGHT = doc.internal.pageSize.getHeight();
   const MARGIN_TOP = 15, MARGIN_BOTTOM = 15;
-
   try {
-    const logoUrl = "https://i.postimg.cc/FsgLstVW/logo.png";
-    const resp = await fetch(logoUrl);
-    const blob = await resp.blob();
-    const base64 = await new Promise((resolve) => {
-      const fr = new FileReader();
-      fr.onloadend = () => resolve(fr.result);
-      fr.readAsDataURL(blob);
-    });
-    doc.addImage(base64, 'PNG', 12, 8, 55, 0);
+    const logoB64 = await getLogoBase64();
+    doc.addImage(logoB64, 'PNG', 12, 8, 55, 0);
   } catch (e) {
     console.warn('Logo introuvable', e);
   }
@@ -706,6 +722,12 @@ async function sendOrDownloadPDF() {
   status.textContent = '⏳ Génération PDF…';
   try {
     const blob = await buildPdfBlob();
+
+    // PATCH: garde-fou taille avant base64 (évite 413 "surprise")
+    if (blob.size > MAX_PDF_BYTES) {
+      const mb = (blob.size / (1024*1024)).toFixed(2);
+      throw new Error(`PDF trop volumineux (${mb} MB). Augmente la limite serveur (Nginx/Express) ou réduis la commande.`);
+    }
 
     if (SEND_ENDPOINT) {
       const b64 = await new Promise(r => {
