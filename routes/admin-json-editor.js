@@ -758,7 +758,7 @@ export default function createAdminEditorRouter() {
       return res.status(400).json({ ok: false, error: "missing_data" });
     }
     try {
-      await ftpStorage.writeJson(entry.filename, data, { backup: true });
+      await ftpStorage.writeJson(entry.filename, data, { backup: false });
       const lastModified = await ftpStorage.getModifiedAt(entry.filename);
       return res.json({ ok: true, lastModified });
     } catch (e) {
