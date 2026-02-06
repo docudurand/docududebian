@@ -17,13 +17,14 @@
   <meta name="apple-mobile-web-app-title" content="Commerce">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="./manifest.webmanifest?v=7">
-
 </head>
+
 <script>window.__SITE_PREFIX__ = "../";</script>
 <script src="../assets/auth.js"></script>
 <script>
   requireAuth();
 </script>
+
 <body>
   <header class="topbar">
     <button class="burger" id="btnBurger" type="button" aria-label="Ouvrir le menu" aria-controls="drawer" aria-expanded="false">
@@ -34,16 +35,18 @@
   <main class="stage">
     <section class="frame frame--home" aria-label="Contenu">
       <div class="welcome" id="welcome">
-  <div class="homeBrand" aria-label="Durand Commerce"><img class="homeBrand__logo" src="https://i.postimg.cc/135Tjt3J/logoc.png" alt="Durand Commerce"></div>
-  <div class="homeVideo">
-    <iframe
-      src="https://player.vimeo.com/video/1091317213?h=19c1ba4743&autoplay=1&muted=1&controls=0&title=0&byline=0&portrait=0&playsinline=1"
-      frameborder="0"
-      allow="autoplay; fullscreen; picture-in-picture"
-      allowfullscreen>
-    </iframe>
-  </div>
-</div>
+        <div class="homeBrand" aria-label="Durand Commerce">
+          <img class="homeBrand__logo" src="https://i.postimg.cc/135Tjt3J/logoc.png" alt="Durand Commerce">
+        </div>
+        <div class="homeVideo">
+          <iframe
+            src="https://player.vimeo.com/video/1091317213?h=19c1ba4743&autoplay=1&muted=1&controls=0&title=0&byline=0&portrait=0&playsinline=1"
+            frameborder="0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
 
       <iframe id="contentFrame"
               name="contentFrame"
@@ -70,15 +73,17 @@
         <span class="drawerTitle__commerce">Commerce</span>
       </div>
 
-      <button class="navBtn" type="button" data-id="televente-bosch">
+      <!-- Téléventes : ouvrent dans l'iframe avec un paramètre -->
+      <button class="navBtn" type="button" data-src="/commerce/televente-orders.html?type=bosch">
         TELEVENTE BOSCH 2026
       </button>
 
-      <button class="navBtn" type="button" data-id="televente-lub">
+      <button class="navBtn" type="button" data-src="/commerce/televente-orders.html?type=lub">
         TELEVENTE LUB 2026
       </button>
 
-      <button class="navBtn" type="button" data-src="./televente-orders.html">
+      <!-- Page de gestion générale -->
+      <button class="navBtn" type="button" data-src="/commerce/televente-orders.html">
         GESTION COMMANDES TELEVENTE
       </button>
 
@@ -89,7 +94,8 @@
         SUIVI GARANTIE
       </a>
 
-      <button class="navBtn" type="button" data-src="/castrol.html">
+      <!-- Castrol : chemin corrigé -->
+      <button class="navBtn" type="button" data-src="/public/castrol.html">
         REFERENCE CASTROL
       </button>
 
