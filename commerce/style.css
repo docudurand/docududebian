@@ -74,7 +74,6 @@ body{
 }
 @media (max-width: 1024px){
   .stage{ padding-left: 6px; padding-right: 6px; }
-  :root{ --ipadW: 100%; }
 }
 
 /* Vidéo accueil */
