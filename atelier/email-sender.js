@@ -1,6 +1,19 @@
 // Module d'envoi d'emails pour le module atelier
 import { transporter, fromEmail } from "../mailer.js";
 
+function escapeHtml(v) {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function nl2br(v) {
+  return escapeHtml(v).replace(/\n/g, "<br>");
+}
+
 // Mapping des services vers les emails des responsables
 function getEmailForService(service) {
   const serviceKey = String(service || "").trim().toUpperCase();
@@ -55,7 +68,7 @@ export async function sendNewRequestEmail(caseData) {
   const recipientEmail = getEmailForService(service);
   
   if (!recipientEmail) {
-    console.warn(`[ATELIER] Aucun email configuré pour le service "${service}"`);
+    console.warn(`[ATELIER] Aucun email configuré pour le service "${escapeHtml(service)}"`);
     return { sent: false, reason: "Email non configuré" };
   }
   
@@ -69,28 +82,93 @@ export async function sendNewRequestEmail(caseData) {
   const immat = header.immat || "";
   const dateDemande = formatDate(caseData.demandeDate || header.dateDemande);
   
-  // Détails spécifiques selon le service
-  let detailsHTML = "";
-  const culasse = (caseData.snapshot && caseData.snapshot.culasse) || null;
-  
+  // Détails (comme le PDF) : choix sélectionnés + commentaire (sans QR Code)
+  const snapshot = (caseData && caseData.snapshot) || {};
+  const commentairesRaw = (snapshot.commentaires || "").trim();
+  const culasse = snapshot.culasse || null;
+  const injecteur = snapshot.injecteur || null;
+
+  const sections = [];
+
+  // Détails "Rectification Culasse"
   if (service === "Rectification Culasse" && culasse) {
-    detailsHTML = `
+    const ops = Array.isArray(culasse.operations) ? culasse.operations : [];
+    const pieces = Array.isArray(culasse.piecesAFournir) ? culasse.piecesAFournir : [];
+
+    const opsHtml = ops.length
+      ? `<ul style="margin:6px 0 0; padding-left:18px;">
+          ${ops.map(op => {
+            const refs = Array.isArray(op.references) ? op.references : [];
+            const refsHtml = refs.length
+              ? `<ul style="margin:6px 0 0 0; padding-left:18px;">
+                  ${refs.map(r => {
+                    const prix = (r.prixHT || r.prixHT === 0) ? ` – ${escapeHtml(r.prixHT)} € HT` : "";
+                    const libRef = r.libelleRef ? ` – ${escapeHtml(r.libelleRef)}` : "";
+                    return `<li><strong>${escapeHtml(r.reference || "")}</strong>${libRef}${prix}</li>`;
+                  }).join("")}
+                </ul>`
+              : "";
+            return `<li>
+              <strong>${escapeHtml(op.libelle || op.ligne || "")}</strong>
+              ${refsHtml}
+            </li>`;
+          }).join("")}
+        </ul>`
+      : `<div style="font-size:13px; color:#64748b;">Aucune opération cochée.</div>`;
+
+    const piecesHtml = pieces.length
+      ? `<ul style="margin:6px 0 0; padding-left:18px;">${pieces.map(p => `<li>${escapeHtml(p)}</li>`).join("")}</ul>`
+      : `<div style="font-size:13px; color:#64748b;">Aucune pièce à fournir sélectionnée.</div>`;
+
+    sections.push(`
       <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-left: 4px solid #004080;">
-        <div style="font-weight: 600; margin-bottom: 10px;">Détails Rectification Culasse :</div>
-        <div style="font-size: 13px; color: #475569;">
-          <div><strong>Cylindre :</strong> ${culasse.cylindre || "–"}</div>
-          <div><strong>Soupapes :</strong> ${culasse.soupapes || "–"}</div>
-          <div><strong>Carburant :</strong> ${culasse.carburant || "–"}</div>
+        <div style="font-weight: 700; margin-bottom: 10px;">Détails Rectification Culasse</div>
+        <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+          <div><strong>VL / PL :</strong> ${escapeHtml(culasse.segment || "–")}</div>
+          <div><strong>Cylindre :</strong> ${escapeHtml(culasse.cylindre || "–")}</div>
+          <div><strong>Soupapes :</strong> ${escapeHtml(culasse.soupapes || "–")}</div>
+          <div><strong>Carburant :</strong> ${escapeHtml(culasse.carburant || "–")}</div>
+        </div>
+
+        <div style="margin-top:12px; font-weight:700;">Opérations sélectionnées</div>
+        ${opsHtml}
+
+        <div style="margin-top:12px; font-weight:700;">Pièces à fournir</div>
+        ${piecesHtml}
+      </div>
+    `);
+  }
+
+  // Détails "Contrôle injection"
+  if ((service === "Contrôle injection Diesel" || service === "Contrôle injection Essence") && injecteur) {
+    sections.push(`
+      <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-left: 4px solid #004080;">
+        <div style="font-weight: 700; margin-bottom: 10px;">Détails Contrôle injection</div>
+        <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+          <div><strong>Type :</strong> ${escapeHtml(injecteur.type || (service.includes("Diesel") ? "Diesel" : "Essence"))}</div>
+          <div><strong>Nombre d’injecteurs :</strong> ${escapeHtml(injecteur.nombre || "–")}</div>
         </div>
       </div>
-    `;
+    `);
   }
-  
+
+  // Commentaires (tous services)
+  if (commentairesRaw) {
+    sections.push(`
+      <div style="margin-top: 20px; padding: 15px; background: #fff7ed; border-left: 4px solid #f97316;">
+        <div style="font-weight: 700; margin-bottom: 10px;">Commentaire</div>
+        <div style="font-size: 13px; color: #7c2d12; line-height: 1.5;">${nl2br(commentairesRaw)}</div>
+      </div>
+    `);
+  }
+
+  const detailsHTML = sections.join("");
+
   try {
     await transporter.sendMail({
       from: `Atelier Durand Services <${fromEmail}>`,
       to: recipientEmail,
-      subject: `[Nouvelle demande] Dossier ${no} – ${service} – ${client}`,
+      subject: `[Nouvelle demande] Dossier ${escapeHtml(no)} – ${escapeHtml(service)} – ${escapeHtml(client)}`,
       html: `
 <!DOCTYPE html>
 <html>
@@ -113,7 +191,7 @@ export async function sendNewRequestEmail(caseData) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>📋 Nouvelle demande – Dossier ${no}</h1>
+      <h1>📋 Nouvelle demande – Dossier ${escapeHtml(no)}</h1>
     </div>
     <div class="content">
       <div class="intro">
@@ -121,44 +199,44 @@ export async function sendNewRequestEmail(caseData) {
         Nous vous informons qu'une nouvelle demande a été créée.
       </div>
       
-      <div class="dossier-number">N° dossier ${no}</div>
+      <div class="dossier-number">N° dossier ${escapeHtml(no)}</div>
       
       <table class="info-table">
         <tr>
           <td>Service</td>
-          <td><strong>${service}</strong></td>
+          <td><strong>${escapeHtml(service)}</strong></td>
         </tr>
         <tr>
           <td>Client</td>
-          <td>${client}</td>
+          <td>${escapeHtml(client)}</td>
         </tr>
         <tr>
           <td>N° de compte client</td>
-          <td>${compte}</td>
+          <td>${escapeHtml(compte)}</td>
         </tr>
         <tr>
           <td>Téléphone client</td>
-          <td>${telephone}</td>
+          <td>${escapeHtml(telephone)}</td>
         </tr>
         <tr>
           <td>Adresse mail magasinier/réceptionnaire</td>
-          <td>${email}</td>
+          <td>${escapeHtml(email)}</td>
         </tr>
         <tr>
           <td>Marque/Modèle</td>
-          <td>${vehicule}</td>
+          <td>${escapeHtml(vehicule)}</td>
         </tr>
         <tr>
           <td>Immatriculation</td>
-          <td>${immat}</td>
+          <td>${escapeHtml(immat)}</td>
         </tr>
         <tr>
           <td>Magasin</td>
-          <td><strong>${magasin}</strong></td>
+          <td><strong>${escapeHtml(magasin)}</strong></td>
         </tr>
         <tr>
           <td>Date de la demande</td>
-          <td>${dateDemande}</td>
+          <td>${escapeHtml(dateDemande)}</td>
         </tr>
       </table>
       
@@ -173,10 +251,10 @@ export async function sendNewRequestEmail(caseData) {
       `
     });
     
-    console.log(`[ATELIER] Email envoyé pour le dossier ${no} à ${recipientEmail}`);
+    console.log(`[ATELIER] Email envoyé pour le dossier ${escapeHtml(no)} à ${recipientEmail}`);
     return { sent: true, to: recipientEmail };
   } catch (error) {
-    console.error(`[ATELIER] Erreur envoi email dossier ${no}:`, error);
+    console.error(`[ATELIER] Erreur envoi email dossier ${escapeHtml(no)}:`, error);
     return { sent: false, reason: error.message };
   }
 }
@@ -207,7 +285,7 @@ export async function sendPieceReturnedEmail(caseData) {
     await transporter.sendMail({
       from: `Atelier Durand Services <${fromEmail}>`,
       to: clientEmail,
-      subject: `Votre dossier ${no} – ${service} – ${client}`,
+      subject: `Votre dossier ${escapeHtml(no)} – ${escapeHtml(service)} – ${escapeHtml(client)}`,
       html: `
 <!DOCTYPE html>
 <html>
@@ -240,25 +318,25 @@ export async function sendPieceReturnedEmail(caseData) {
       </div>
       
       <div class="highlight-box">
-        <strong>La pièce est disponible au magasin ${magasin}.</strong>
+        <strong>La pièce est disponible au magasin ${escapeHtml(magasin)}.</strong>
       </div>
       
       <table class="info-table">
         <tr>
           <td>N° de dossier</td>
-          <td><strong>${no}</strong></td>
+          <td><strong>${escapeHtml(no)}</strong></td>
         </tr>
         <tr>
           <td>Service</td>
-          <td>${service}</td>
+          <td>${escapeHtml(service)}</td>
         </tr>
         <tr>
           <td>Client</td>
-          <td>${client}</td>
+          <td>${escapeHtml(client)}</td>
         </tr>
         <tr>
           <td>Magasin</td>
-          <td><strong>${magasin}</strong></td>
+          <td><strong>${escapeHtml(magasin)}</strong></td>
         </tr>
       </table>
     </div>
@@ -274,10 +352,10 @@ export async function sendPieceReturnedEmail(caseData) {
       `
     });
     
-    console.log(`[ATELIER] Email envoyé pour le dossier ${no} à ${clientEmail}`);
+    console.log(`[ATELIER] Email envoyé pour le dossier ${escapeHtml(no)} à ${clientEmail}`);
     return { sent: true, to: clientEmail };
   } catch (error) {
-    console.error(`[ATELIER] Erreur envoi email dossier ${no}:`, error);
+    console.error(`[ATELIER] Erreur envoi email dossier ${escapeHtml(no)}:`, error);
     return { sent: false, reason: error.message };
   }
 }

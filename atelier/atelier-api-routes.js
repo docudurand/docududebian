@@ -291,6 +291,58 @@ router.post("/api/print-html", (req, res) => {
     </div>
   </div>
   
+
+
+  ${culasse ? `
+  <!-- Bloc Culasse -->
+  <div class="section">
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">VL / PL</div>
+        <div class="info-value">${culasse.segment || ""}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Cylindre</div>
+        <div class="info-value">${culasse.cylindre || ""}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Soupapes</div>
+        <div class="info-value">${culasse.soupapes || ""}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Carburant</div>
+        <div class="info-value">${culasse.carburant || ""}</div>
+      </div>
+    </div>
+
+    ${(culasse.operations && culasse.operations.length) ? `
+      <div style="margin-top:14px; font-weight:700; color:#003d7a;">Opérations</div>
+      <ul style="margin:8px 0 0 18px;">
+        ${culasse.operations.map(op => `
+          <li style="margin:6px 0;">
+            <strong>${op.libelle || op.ligne || ""}</strong>
+            ${(op.references && op.references.length) ? `
+              <ul style="margin:6px 0 0 18px;">
+                ${op.references.map(r => `
+                  <li>
+                    <strong>${r.reference || ""}</strong>${r.libelleRef ? " – " + r.libelleRef : ""}${(r.prixHT !== null && r.prixHT !== undefined && r.prixHT !== "") ? " (" + r.prixHT + " € HT)" : ""}
+                  </li>
+                `).join("")}
+              </ul>
+            ` : ""}
+          </li>
+        `).join("")}
+      </ul>
+    ` : ""}
+
+    ${(culasse.piecesAFournir && culasse.piecesAFournir.length) ? `
+      <div style="margin-top:14px; font-weight:700; color:#003d7a;">Pièces à fournir</div>
+      <ul style="margin:8px 0 0 18px;">
+        ${culasse.piecesAFournir.map(p => `<li style="margin:4px 0;">${p}</li>`).join("")}
+      </ul>
+    ` : ""}
+  </div>
+  ` : ""}
   ${injecteur ? `
   <!-- Détails Contrôle injection -->
   <div class="section">
