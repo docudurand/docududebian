@@ -74,13 +74,14 @@
       color: #fff;
       box-shadow: var(--shadow);
     }
-    .layout{
-      display: grid;
-      width: 100%;
-      grid-template-columns: minmax(380px, 520px) minmax(520px, 1fr);
-      gap: 16px;
-      align-items: start;
-    }
+.layout{
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(420px, 38%) 1fr; /* ⬅️ la gauche peut monter avec la largeur */
+  gap: 16px;
+  align-items: start;
+}
+
     .panel{
       background: var(--card);
       border: 1px solid var(--border);
