@@ -316,11 +316,7 @@ export async function sendPieceReturnedEmail(caseData) {
         <strong>Bonjour,</strong><br><br>
         Nous vous informons que les travaux sont terminés et que la pièce a été <strong>renvoyée</strong>.
       </div>
-      
-      <div class="highlight-box">
-        <strong>La pièce est disponible au magasin ${escapeHtml(magasin)}.</strong>
-      </div>
-      
+            
       <table class="info-table">
         <tr>
           <td>N° de dossier</td>
