@@ -376,6 +376,7 @@ const PASS_STE     = atelierCfg.ATELIER_SUIVI_PASS_STE     || "";
 const PASS_BG      = atelierCfg.ATELIER_SUIVI_PASS_BG      || "";
 const PASS_LIMITED = atelierCfg.ATELIER_SUIVI_PASS_LIMITED || "";
 const PASS_CHASSE  = atelierCfg.ATELIER_SUIVI_PASS_CHASSE  || "";
+const PASS_ADMIN  = atelierCfg.ATELIER_SUIVI_PASS_ADMIN  || "";
 
 let LIMITED_VIEW = false;
 let VIEW_MODE    = "ALL";
@@ -475,6 +476,9 @@ function matchesServiceByView(row){
   }
   if (VIEW_MODE === "CHASSE") {
     return ["Rectification des Volants Moteur", "Regarnissages Machoires"].includes(svc);
+  }
+  if (VIEW_MODE === "ADMIN") {
+    return ["Rectification Culasse", "Contrôle injection Diesel", "Contrôle injection Essence", "Rectification des Volants Moteur", "Regarnissages Machoires", "Arbre de Transmission"].includes(svc);
   }
   return true;
 }
@@ -744,6 +748,7 @@ function draw(){
       tr.querySelector(".btnView").addEventListener("click", ()=> openDetails(r));
 
       tr.querySelector(".btnSave").addEventListener("click", async ()=>{
+        if (LIMITED_VIEW) return;
         const statusSel = tr.querySelector(".statusSel");
         const etaSel = tr.querySelector(".etaSel");
         const saveBtn = tr.querySelector(".btnSave");
@@ -1001,7 +1006,7 @@ if ($filterService) {
   function handleLogin(){
     const v = (input.value || "").trim();
 
-    if (!PASS_STE && !PASS_BG && !PASS_LIMITED && !PASS_CHASSE){
+    if (!PASS_STE && !PASS_BG && !PASS_LIMITED && !PASS_CHASSE && !PASS_ADMIN){
       LIMITED_VIEW = false;
       VIEW_MODE = "ALL";
       startApp();
@@ -1071,6 +1076,22 @@ if ($filterService) {
       startApp();
       return;
     }
+        if (PASS_ADMIN && v === PASS_ADMIN){
+      LIMITED_VIEW = false;
+      VIEW_MODE = "ALL";
+
+      try {
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      startApp();
+      return;
+    }
+
 
     errBox.textContent = "Mot de passe incorrect.";
   }

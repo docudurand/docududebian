@@ -26,6 +26,7 @@ router.get("/config.js", (_req, res) => {
   const PASS_BG = process.env.ATELIER_SUIVI_PASS_BG || "";
   const PASS_LIMITED = process.env.ATELIER_SUIVI_PASS_LIMITED || "";
   const PASS_CHASSE = process.env.ATELIER_SUIVI_PASS_CHASSE || "";
+  const PASS_ADMIN = process.env.ATELIER_SUIVI_PASS_ADMIN || "";
   const BASE_URL = process.env.BASE_URL || "";
   const GS_URL = BASE_URL ? `${BASE_URL}/atelier/api/config` : "/atelier/api/config";
 
@@ -35,6 +36,7 @@ router.get("/config.js", (_req, res) => {
       ATELIER_SUIVI_PASS_BG: ${JSON.stringify(PASS_BG)},
       ATELIER_SUIVI_PASS_LIMITED: ${JSON.stringify(PASS_LIMITED)},
       ATELIER_SUIVI_PASS_CHASSE: ${JSON.stringify(PASS_CHASSE)},
+      ATELIER_SUIVI_PASS_ADMIN: ${JSON.stringify(PASS_ADMIN)},
       GS_URL: ${JSON.stringify(GS_URL)}
     };`
   );
