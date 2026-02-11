@@ -870,11 +870,20 @@ router.get("/admin/dossiers", async (_req, res) => {
 });
 
 // API client: renvoie les dossiers d'un email.
+// API client: renvoie les dossiers d'un numero_compte_client.
 router.get("/mes-dossiers", async (req, res) => {
   try {
-    const email = (req.query.email||"").toLowerCase();
+    const nccRaw = (req.query.numero_compte_client || "").toString().trim();
+    if (!nccRaw) return res.json([]);
+
+    const ncc = nccRaw.toLowerCase();
     const data = await readDataFTP();
-    const dossiers = data.filter(d => d.email && d.email.toLowerCase() === email);
+
+    const dossiers = (Array.isArray(data) ? data : []).filter(d => {
+      const v = (d && d.numero_compte_client != null) ? String(d.numero_compte_client).trim().toLowerCase() : "";
+      return v === ncc;
+    });
+
     res.json(dossiers);
   } catch (err) {
     console.error("Erreur /api/mes-dossiers :", err.message || err);
