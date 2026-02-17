@@ -800,7 +800,13 @@ router.post("/admin/dossier/:id",
       const oldStatut = dossier.statut;
       const oldReponse = dossier.reponse;
       const oldFilesLength = (dossier.reponseFiles||[]).length;
-      const statutRecu = typeof req.body.statut === "string" ? req.body.statut.trim() : undefined;
+      const rawStatut =
+  (typeof req.body.statut === "string" && req.body.statut) ||
+  (typeof req.body.status === "string" && req.body.status) ||
+  (typeof req.body.statutClient === "string" && req.body.statutClient) ||
+  "";
+
+const statutRecu = rawStatut ? String(rawStatut).trim() : undefined;
       const repRecue = req.body.reponse;
       const nbAvoir = req.body.numero_avoir;
       let attenteFlagProvided = Object.prototype.hasOwnProperty.call(req.body, "attente_mo");
