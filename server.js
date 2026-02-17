@@ -121,11 +121,17 @@ app.use(
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+
+    // Prolonge la session à chaque requête (si l'utilisateur navigue)
+    rolling: true,
+
     cookie: {
       httpOnly: true,
       sameSite: "lax",
       secure: "auto",
-      maxAge: 6 * 60 * 60 * 1000,
+
+      // 30 jours
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     },
   })
 );
