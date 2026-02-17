@@ -79,19 +79,19 @@
   .wrap-ok  { white-space:normal; word-break:break-word; }
 
   .badge{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:5px 8px;
-  border-radius:999px;
-  font-weight:700;
-  font-size:.84rem;
-  min-width:84px;
-  max-width:130px;
-  text-align:center;
-  white-space:normal;
-  line-height:1.1;
-}
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:5px 8px;
+    border-radius:999px;
+    font-weight:700;
+    font-size:.84rem;
+    min-width:84px;
+    max-width:130px;
+    text-align:center;
+    white-space:normal;
+    line-height:1.1;
+  }
 
   .btnSave{ display: inline-flex;  align-items: center;  justify-content: center;}
   .s-1{background:var(--s1); color:var(--s1b)}
@@ -126,7 +126,8 @@
   }
 
   .spinner{
-    width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:#004080;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle
+    width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:#004080;border-radius:50%;
+    animation:spin 1s linear infinite;display:inline-block;vertical-align:middle
   }
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -207,12 +208,11 @@
     user-select:none;
   }
 
-html.dsg-in-iframe, html.dsg-in-iframe body {
-  height: auto !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-}
-
+  html.dsg-in-iframe, html.dsg-in-iframe body {
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
 </style>
 </head>
 <body>
@@ -262,18 +262,21 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
 })();
 </script>
 
-
-
 <div class="loginOverlay" id="loginOverlay">
   <div class="loginBox">
     <h2>Accès suivi atelier</h2>
     <p>Veuillez saisir votre mot de passe.</p>
+
     <input
       type="password"
       id="loginPassword"
       placeholder="Mot de passe"
       autocomplete="current-password"
     />
+    <label class="rememberLabel">
+      <input type="checkbox" id="rememberPwd" checked />
+      Se souvenir du mot de passe sur cet appareil
+    </label>
     <button type="button" id="loginBtn">Se connecter</button>
     <div class="error" id="loginError"></div>
   </div>
@@ -281,23 +284,23 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
 
 <div class="wrap">
   <div class="toolbar">
-  <label>Filtrer magasin :
-    <select id="filterMag">
-      <option value="">Tous</option>
-      <option>Annemasse</option><option>Bourgoin</option><option>Chasse sur Rhone</option><option>Chassieu</option><option>Gleize</option><option>La Motte Servolex</option><option>Miribel</option>
-      <option>Renage</option><option>Rives</option><option>Seynod</option><option>St Egreve</option><option>St-Jean-Bonnefonds</option>
-    </select>
-  </label>
+    <label>Filtrer magasin :
+      <select id="filterMag">
+        <option value="">Tous</option>
+        <option>Annemasse</option><option>Bourgoin</option><option>Chasse sur Rhone</option><option>Chassieu</option><option>Gleize</option><option>La Motte Servolex</option><option>Miribel</option>
+        <option>Renage</option><option>Rives</option><option>Seynod</option><option>St Egreve</option><option>St-Jean-Bonnefonds</option>
+      </select>
+    </label>
 
-  <label id="serviceFilterContainer" style="display:none;">
-    Filtrer service :
-    <select id="filterService">
-      <option value="">Tous</option>
-    </select>
-  </label>
+    <label id="serviceFilterContainer" style="display:none;">
+      Filtrer service :
+      <select id="filterService">
+        <option value="">Tous</option>
+      </select>
+    </label>
 
-  <input id="q" type="search" placeholder="Rechercher (n°, compte, client)" style="min-width:280px" />
-</div>
+    <input id="q" type="search" placeholder="Rechercher (n°, compte, client)" style="min-width:280px" />
+  </div>
 
   <div class="yearbar" aria-label="Filtre par année et mois (Date de la demande)">
     <div class="yearTabs" role="tablist" aria-label="Années">
@@ -363,7 +366,6 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
 </div>
 
 <script>
-
 let LIMITED_VIEW = false;
 let VIEW_MODE    = "ALL";
 
@@ -457,15 +459,6 @@ const MONTHS_FULL = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet",
 let YEAR_FILTER = '';
 let MONTH_FILTER = '';
 let STATUS_FILTER = '';
-
-const SERVICES_STE = [
-  "Rectification Culasse",
-  "Rectification Vilebrequin",
-  "Rectification des Volants Moteur",
-  "Regarnissages Machoires",
-  "Contrôle injection Diesel",
-  "Contrôle injection Essence"
-];
 
 function matchesServiceByView(row){
   const svc = (row.service || "").trim();
@@ -575,15 +568,15 @@ async function fetchCasesNormalized(){
 
 function startPolling(ms = 45000){
   stopPolling();
-POLL_TIMER = setInterval(async ()=>{
-  if (document.hidden) return;
-  if ($mask && $mask.style.display === "flex") return;
-  if (POLL_IN_FLIGHT) return;
+  POLL_TIMER = setInterval(async ()=>{
+    if (document.hidden) return;
+    if ($mask && $mask.style.display === "flex") return;
+    if (POLL_IN_FLIGHT) return;
 
-  POLL_IN_FLIGHT = true;
-  try{
-    const currentServiceSelected = ($filterService && $filterService.value) ? $filterService.value : "";
-    const fresh = await fetchCasesNormalized();
+    POLL_IN_FLIGHT = true;
+    try{
+      const currentServiceSelected = ($filterService && $filterService.value) ? $filterService.value : "";
+      const fresh = await fetchCasesNormalized();
 
       const newMax = getMaxNo(fresh);
       const hadNew = newMax > (LAST_MAX_NO || 0);
@@ -623,6 +616,7 @@ function stopPolling(){
   if (POLL_TIMER) clearInterval(POLL_TIMER);
   POLL_TIMER = null;
 }
+
 function buildEstimateSelect(value){
   const v = (value === "" || value === null || value === undefined) ? "" : Number(value);
   let opts = `<option value="" ${v==="" ? "selected":""}></option>`;
@@ -631,6 +625,7 @@ function buildEstimateSelect(value){
   }
   return `<select class="etaSel" aria-label="Estimation Temps Travaux">${opts}</select>`;
 }
+
 function matchesYearMonth(d){
   if (!YEAR_FILTER) return true;
   if (!d) return false;
@@ -638,6 +633,7 @@ function matchesYearMonth(d){
   if (!MONTH_FILTER || MONTH_FILTER==='all') return true;
   return (d.getMonth()+1) === Number(MONTH_FILTER);
 }
+
 function buildServiceFilterOptions() {
   if (!$filterService) return;
 
@@ -660,15 +656,9 @@ function applyLimitedView(){
   if (!LIMITED_VIEW) return;
 
   const thActions = document.querySelector("th.th-actions");
-  if (thActions) {
-    thActions.style.display = "none";
-  }
-  document.querySelectorAll("td.col-actions").forEach(td => {
-    td.style.display = "none";
-  });
-  document.querySelectorAll("col.col-actions").forEach(col => {
-    col.style.display = "none";
-  });
+  if (thActions) thActions.style.display = "none";
+  document.querySelectorAll("td.col-actions").forEach(td => { td.style.display = "none"; });
+  document.querySelectorAll("col.col-actions").forEach(col => { col.style.display = "none"; });
 
   document.querySelectorAll("select.etaSel").forEach(sel => {
     sel.classList.add("readonlyLimited");
@@ -692,13 +682,12 @@ function draw(){
     return nb - na;
   });
 
-
   let count = 0;
   $tbody.innerHTML = "";
-    list
+  list
     .filter(r => !mag || (r.magasin||"").toLowerCase() === mag)
     .filter(r => matchesYearMonth(parseDate(r.demandeDate)))
-    .filter(r => matchesServiceByView(r))              
+    .filter(r => matchesServiceByView(r))
     .filter(r => {
       if (!serviceFilterValue) return true;
       return (r.service || "").trim() === serviceFilterValue;
@@ -709,18 +698,13 @@ function draw(){
       const compte  = (r.compte || "").toLowerCase();
       const client  = (r.client || "").toLowerCase();
       const isNum   = /^\d+$/.test(q);
-
-      if (isNum) {
-        return noStr.includes(q);
-      }
-
+      if (isNum) return noStr.includes(q);
       return compte.includes(q) || client.includes(q);
     })
     .filter(r => {
       if (!STATUS_FILTER) return true;
       return (r.status || "") === STATUS_FILTER;
     })
-
     .forEach(r => {
       count++;
       const tr = document.createElement("tr");
@@ -807,17 +791,16 @@ function draw(){
     : 'Toutes années';
 
   const statusText = STATUS_FILTER
-  ? ` • Statut : ${displayStatusLabel(STATUS_FILTER)}`
-  : ' • Statut : Tous';
+    ? ` • Statut : ${displayStatusLabel(STATUS_FILTER)}`
+    : ' • Statut : Tous';
 
   $legend.textContent = `${count} dossier(s) • ${ymText}${statusText}`;
 
-  if (LIMITED_VIEW){
-    applyLimitedView();
-  }
+  if (LIMITED_VIEW) applyLimitedView();
 }
 
 function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
 function openDetails(row){
   const h = (row.snapshot && row.snapshot.header) || {};
   const cul = (row.snapshot && row.snapshot.culasse) || null;
@@ -891,11 +874,13 @@ function openDetails(row){
   $mask.style.display = "flex";
   $mask.setAttribute("aria-hidden","false");
 }
+
 document.getElementById("btnClose").addEventListener("click", ()=>{
   $mask.style.display = "none";
   $mask.setAttribute("aria-hidden","true");
   $modalContent.innerHTML = "";
 });
+
 document.getElementById("btnPrint").addEventListener("click", () => {
   const w = window.open("", "_blank");
   if (!w) {
@@ -930,10 +915,7 @@ document.getElementById("btnPrint").addEventListener("click", () => {
   w.addEventListener("load", () => {
     w.focus();
     w.print();
-
-    w.addEventListener("afterprint", () => {
-      w.close();
-    });
+    w.addEventListener("afterprint", () => { w.close(); });
   });
 });
 
@@ -955,57 +937,59 @@ function load(){
     draw();
   }
 
-(async ()=>{
-  let authError = false;
-  try{
-    const fresh = await fetchCasesNormalized();
-    rows = fresh;
-    LAST_MAX_NO = getMaxNo(fresh);
-  } catch(e){
-    if (String(e?.message || "").includes("AUTH_REQUIRED")) {
-      authError = true;
-      showLoginOverlay();
-    } else {
-      console.error(e);
-      $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#b91c1c">Erreur de chargement.</td></tr>`;
-    }
-  } finally {
-    IS_LOADING = false;
-
-    if (LIMITED_VIEW) {
-      if ($serviceFilterContainer) {
-        $serviceFilterContainer.style.display = "inline-block";
+  (async ()=>{
+    let authError = false;
+    try{
+      const fresh = await fetchCasesNormalized();
+      rows = fresh;
+      LAST_MAX_NO = getMaxNo(fresh);
+    } catch(e){
+      if (String(e?.message || "").includes("AUTH_REQUIRED")) {
+        authError = true;
+        showLoginOverlay();
+      } else {
+        console.error(e);
+        $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#b91c1c">Erreur de chargement.</td></tr>`;
       }
-      buildServiceFilterOptions();
-    } else {
-      if ($serviceFilterContainer) {
-        $serviceFilterContainer.style.display = "none";
+    } finally {
+      IS_LOADING = false;
+
+      if (LIMITED_VIEW) {
+        if ($serviceFilterContainer) $serviceFilterContainer.style.display = "inline-block";
+        buildServiceFilterOptions();
+      } else {
+        if ($serviceFilterContainer) $serviceFilterContainer.style.display = "none";
+      }
+
+      draw();
+
+      if (!authError) {
+        startPolling(45000);
+        window.addEventListener("beforeunload", stopPolling);
       }
     }
-
-    draw();
-
-    if (!authError) {
-      startPolling(45000);
-      window.addEventListener("beforeunload", stopPolling);
-    }
-  }
-})();
+  })();
 }
+
 $filter.addEventListener("change", draw);
 $q.addEventListener("input", draw);
-
-if ($filterService) {
-  $filterService.addEventListener("change", draw);
-}
+if ($filterService) $filterService.addEventListener("change", draw);
 
 (function initLogin(){
   const overlay = document.getElementById("loginOverlay");
   const input   = document.getElementById("loginPassword");
   const btn     = document.getElementById("loginBtn");
   const errBox  = document.getElementById("loginError");
-  const rememberLabel = document.querySelector(".rememberLabel");
-  if (rememberLabel) rememberLabel.style.display = "none";
+  const remember = document.getElementById("rememberPwd");
+
+  const LS_KEY = "dsg_suivi_pwd";
+
+  // Restaurer la checkbox + mot de passe (si stocké)
+  try {
+    const saved = localStorage.getItem(LS_KEY) || "";
+    if (remember) remember.checked = !!saved;
+    if (saved && input) input.value = saved;
+  } catch {}
 
   function startApp(){
     if (errBox) errBox.textContent = "";
@@ -1033,7 +1017,7 @@ if ($filterService) {
   }
 
   async function handleLogin(){
-    const v = (input.value || "").trim();
+    const v = (input?.value || "").trim();
     if (!v) {
       if (errBox) errBox.textContent = "Mot de passe requis.";
       if (input) input.focus();
@@ -1042,6 +1026,7 @@ if ($filterService) {
 
     if (errBox) errBox.textContent = "";
     if (btn) btn.disabled = true;
+
     try {
       const resp = await apiFetch("/suivi-dossier/api/login", {
         method: "POST",
@@ -1053,8 +1038,18 @@ if ($filterService) {
         if (errBox) errBox.textContent = payload?.message || `Erreur (${resp.status})`;
         return;
       }
+
       applySession(payload);
+
+      // Sauvegarder / supprimer le mot de passe selon la case à cocher
+      try {
+        if (remember && remember.checked) localStorage.setItem(LS_KEY, v);
+        else localStorage.removeItem(LS_KEY);
+      } catch {}
+
+      // on vide le champ (optionnel) pour éviter d'afficher le mdp en clair après login
       if (input) input.value = "";
+
       startApp();
     } catch {
       if (errBox) errBox.textContent = "Erreur réseau.";
@@ -1063,10 +1058,8 @@ if ($filterService) {
     }
   }
 
-  btn.addEventListener("click", handleLogin);
-  input.addEventListener("keydown", (e)=>{
-    if (e.key === "Enter") handleLogin();
-  });
+  if (btn) btn.addEventListener("click", handleLogin);
+  if (input) input.addEventListener("keydown", (e)=>{ if (e.key === "Enter") handleLogin(); });
 
   (async () => {
     const ok = await restoreSession();
