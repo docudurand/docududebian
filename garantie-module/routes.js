@@ -1260,7 +1260,6 @@ router.post("/admin/logout", requireGarantieRead, (req, res) => {
   req.session.save(() => res.sendStatus(204));
 });
 
-
 // API admin: supprime une piece jointe d'un dossier.
 router.post("/admin/dossier/:id/delete-file", requireGarantieWrite, async (req, res) => {
   try {
