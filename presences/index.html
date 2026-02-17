@@ -447,11 +447,16 @@ async function fetchJSON(path, opts={}, retries=1){
   try{
     const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
     const token = sessionStorage.getItem('leavesToken');
-    if(path.startsWith('/leaves') || path.startsWith('/range-mark')){ if(token) headers['X-Admin-Token'] = token; }
-    const r = await fetch(apiBase+path, { ...opts, headers, signal: ctrl.signal });
+    const needsAdminToken =
+      path.startsWith('/leaves') ||
+      path.startsWith('/range-mark') ||
+      path.startsWith('/save') ||
+      path.startsWith('/adjust-conges');
+    if(needsAdminToken){ if(token) headers['X-Admin-Token'] = token; }
+    const r = await fetch(apiBase+path, { ...opts, credentials:'same-origin', headers, signal: ctrl.signal });
     if(!r.ok){
       const txt = await r.text().catch(()=> '');
-      if (r.status === 401 && (path.startsWith('/leaves') || path.startsWith('/range-mark'))) throw new Error('401');
+      if (r.status === 401 && needsAdminToken) throw new Error('401');
       throw new Error(txt || ('HTTP '+r.status));
     }
     return await r.json();
@@ -1041,7 +1046,11 @@ if (v) {
   $resumeContent.innerHTML=''; $resumeContent.appendChild(wrap);
 }
 
-try{ const saved = localStorage.getItem('leavesToken'); if(saved){ $leavesPass.value = saved; } }catch{}
+try{
+  const saved = sessionStorage.getItem('leavesToken');
+  if(saved){ $leavesPass.value = saved; }
+  localStorage.removeItem('leavesToken');
+}catch{}
 document.getElementById('resume-month').value=thisYM();
 document.getElementById('today').textContent = todayISO();
 
@@ -1088,7 +1097,7 @@ $loginForm.addEventListener('submit', (ev)=>{
   const pw = $leavesPass.value.trim();
   if(!pw){ alert('Mot de passe requis'); return; }
   sessionStorage.setItem('leavesToken', pw);
-  if($rememberPw.checked){ try{ localStorage.setItem('leavesToken', pw); }catch{} }
+  if($rememberPw.checked){ try{ sessionStorage.setItem('leavesToken', pw); }catch{} }
   $leavesError.style.display='none';
   $arBox.style.display='block'; if($exBox) $exBox.style.display='block'; if($exMonth && !$exMonth.value){ $exMonth.value=thisYM(); }
   if(currentMagasin) $arMag.value = currentMagasin;

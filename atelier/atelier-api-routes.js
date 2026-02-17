@@ -9,11 +9,125 @@ const dataManager = new FTPDataManager();
 // Middleware pour parser le JSON
 router.use(express.json());
 
+const ALLOWED_CASE_STATUSES = new Set([
+  "Demande envoyé",
+  "Pièce reçu",
+  "Travaux en cours",
+  "Renvoyé",
+  "Pièce Renvoyé",
+  "Pièce envoyé chez Fournisseurs",
+  "Pièce renvoyé à l'agence",
+]);
+
+const VIEW_MODE_SERVICES = {
+  STE: new Set([
+    "RECTIFICATION CULASSE",
+    "CONTROLE INJECTION DIESEL",
+    "CONTROLE INJECTION ESSENCE",
+  ]),
+  BG: new Set([
+    "ARBRE DE TRANSMISSION",
+  ]),
+  CHASSE: new Set([
+    "RECTIFICATION DES VOLANTS MOTEUR",
+    "REGARNISSAGES MACHOIRES",
+  ]),
+};
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function resolveCaseService(caseData) {
+  return caseData?.service || caseData?.snapshot?.header?.service || "";
+}
+
+function getSuiviAuth(req) {
+  const raw = req.session?.atelierSuiviAuth;
+  if (!raw || typeof raw !== "object") return null;
+  const role = normalizeText(raw.role);
+  const viewMode = normalizeText(raw.viewMode || raw.role);
+  return {
+    role,
+    viewMode,
+    isLimited: Boolean(raw.isLimited),
+  };
+}
+
+function canReadCase(auth, caseData) {
+  if (!auth) return false;
+  if (auth.isLimited) return true;
+  if (auth.viewMode === "ADMIN" || auth.viewMode === "ALL") return true;
+  const allowed = VIEW_MODE_SERVICES[auth.viewMode];
+  if (!allowed) return false;
+  return allowed.has(normalizeText(resolveCaseService(caseData)));
+}
+
+function requireSuiviRead(req, res, next) {
+  const auth = getSuiviAuth(req);
+  if (!auth) {
+    return res.status(401).json({ success: false, error: "auth_required" });
+  }
+  req.suiviAuth = auth;
+  return next();
+}
+
+function requireSuiviWrite(req, res, next) {
+  const auth = getSuiviAuth(req);
+  if (!auth) {
+    return res.status(401).json({ success: false, error: "auth_required" });
+  }
+  if (auth.isLimited) {
+    return res.status(403).json({ success: false, error: "read_only" });
+  }
+  req.suiviAuth = auth;
+  return next();
+}
+
+function sanitizeStatusInput(status) {
+  const s = String(status || "").trim();
+  if (!s || !ALLOWED_CASE_STATUSES.has(s)) return null;
+  return s;
+}
+
+function sanitizeEstimationInput(value) {
+  if (value === "" || value == null) return "";
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 10) return null;
+  return n;
+}
+
 // POST /api/print-html - Génère la page d'aperçu d'impression
 // POST /api/print-html - Génère la page d'aperçu d'impression (VERSION EXACTE)
 router.post("/api/print-html", (req, res) => {
   try {
-    const payload = JSON.parse(req.body.payload || "{}");
+    const rawPayload =
+      typeof req.body?.payload === "string"
+        ? JSON.parse(req.body.payload || "{}")
+        : (req.body?.payload || {});
+    const escapeHtml = (value) =>
+      String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    const sanitizeForHtml = (value) => {
+      if (typeof value === "string") return escapeHtml(value);
+      if (Array.isArray(value)) return value.map((item) => sanitizeForHtml(item));
+      if (value && typeof value === "object") {
+        const out = {};
+        for (const [k, v] of Object.entries(value)) out[k] = sanitizeForHtml(v);
+        return out;
+      }
+      return value;
+    };
+    const payload = sanitizeForHtml(rawPayload);
     const header = payload.header || {};
     const meta = payload.meta || {};
     const commentaires = payload.commentaires || "";
@@ -242,7 +356,7 @@ router.post("/api/print-html", (req, res) => {
   <!-- Header avec logo Durand -->
   <div class="header">
     <div class="logo-section">
-      <img src="https://i.postimg.cc/CxLtQ1xJ/logodurand.png" alt="Logo Durand" class="logo-img" />
+      <img src="https://raw.githubusercontent.com/docudurand/docudurpho/main/logodurand.png" alt="Logo Durand" class="logo-img" />
       <div class="logo-text">pièces automobile et services</div>
     </div>
     <div class="title-section">
@@ -479,7 +593,7 @@ router.get("/api/config", async (req, res) => {
 });
 
 // GET /api/cases - Récupérer tous les dossiers (avec filtres optionnels)
-router.get("/api/cases", async (req, res) => {
+router.get("/api/cases", requireSuiviRead, async (req, res) => {
   try {
     const filters = {
       status: req.query.status,
@@ -487,7 +601,8 @@ router.get("/api/cases", async (req, res) => {
       service: req.query.service
     };
     
-    const cases = await dataManager.getAllCases(filters);
+    const casesRaw = await dataManager.getAllCases(filters);
+    const cases = (Array.isArray(casesRaw) ? casesRaw : []).filter((c) => canReadCase(req.suiviAuth, c));
     
     res.json({
       success: true,
@@ -504,10 +619,16 @@ router.get("/api/cases", async (req, res) => {
 });
 
 // GET /api/cases/:no - Récupérer un dossier spécifique
-router.get("/api/cases/:no", async (req, res) => {
+router.get("/api/cases/:no", requireSuiviRead, async (req, res) => {
   try {
     const caseNo = req.params.no;
     const caseData = await dataManager.getCaseByNo(caseNo);
+    if (!canReadCase(req.suiviAuth, caseData)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_scope"
+      });
+    }
     
     res.json({
       success: true,
@@ -531,9 +652,17 @@ router.get("/api/cases/:no", async (req, res) => {
 });
 
 // POST /api/cases - Créer un nouveau dossier
-router.post("/api/cases", async (req, res) => {
+router.post("/api/cases", requireSuiviWrite, async (req, res) => {
   try {
-    const newCase = await dataManager.addCase(req.body);
+    const payload = req.body || {};
+    if (!canReadCase(req.suiviAuth, payload)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_scope"
+      });
+    }
+
+    const newCase = await dataManager.addCase(payload);
     
     res.status(201).json({
       success: true,
@@ -549,17 +678,47 @@ router.post("/api/cases", async (req, res) => {
 });
 
 // POST /api/cases/:no/status - Mettre à jour le statut d'un dossier
-router.post("/api/cases/:no/status", async (req, res) => {
+router.post("/api/cases/:no/status", requireSuiviWrite, async (req, res) => {
   try {
     const caseNo = req.params.no;
-    const { status, estimation } = req.body;
-    
-    const updates = {
-      status,
-      ...(estimation !== undefined && { estimation })
-    };
+    const existingCase = await dataManager.getCaseByNo(caseNo);
+    if (!canReadCase(req.suiviAuth, existingCase)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_scope"
+      });
+    }
+
+    const updates = {};
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "status")) {
+      const cleanStatus = sanitizeStatusInput(req.body.status);
+      if (!cleanStatus) {
+        return res.status(400).json({
+          success: false,
+          error: "invalid_status"
+        });
+      }
+      updates.status = cleanStatus;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "estimation")) {
+      const cleanEstimation = sanitizeEstimationInput(req.body.estimation);
+      if (cleanEstimation === null) {
+        return res.status(400).json({
+          success: false,
+          error: "invalid_estimation"
+        });
+      }
+      updates.estimation = cleanEstimation;
+    }
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({
+        success: false,
+        error: "empty_update"
+      });
+    }
     
     const updatedCase = await dataManager.updateCase(caseNo, updates);
+    const status = updates.status;
     
     // Si le statut est "Renvoyé" ou "Pièce Renvoyé", envoyer un email au client
     if (status === "Renvoyé" || status === "Pièce Renvoyé" || status === "Pièce renvoyé à l'agence") {
@@ -597,10 +756,48 @@ router.post("/api/cases/:no/status", async (req, res) => {
 });
 
 // PUT /api/cases/:no - Mettre à jour un dossier complet
-router.put("/api/cases/:no", async (req, res) => {
+router.put("/api/cases/:no", requireSuiviWrite, async (req, res) => {
   try {
     const caseNo = req.params.no;
-    const updatedCase = await dataManager.updateCase(caseNo, req.body);
+    const existingCase = await dataManager.getCaseByNo(caseNo);
+    if (!canReadCase(req.suiviAuth, existingCase)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_scope"
+      });
+    }
+
+    const payload = { ...(req.body || {}) };
+    if (Object.prototype.hasOwnProperty.call(payload, "status")) {
+      const cleanStatus = sanitizeStatusInput(payload.status);
+      if (!cleanStatus) {
+        return res.status(400).json({
+          success: false,
+          error: "invalid_status"
+        });
+      }
+      payload.status = cleanStatus;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, "estimation")) {
+      const cleanEstimation = sanitizeEstimationInput(payload.estimation);
+      if (cleanEstimation === null) {
+        return res.status(400).json({
+          success: false,
+          error: "invalid_estimation"
+        });
+      }
+      payload.estimation = cleanEstimation;
+    }
+
+    const projectedCase = { ...existingCase, ...payload };
+    if (!canReadCase(req.suiviAuth, projectedCase)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_scope"
+      });
+    }
+
+    const updatedCase = await dataManager.updateCase(caseNo, payload);
     
     res.json({
       success: true,
@@ -668,7 +865,7 @@ router.get("/api/regles", async (req, res) => {
 });
 
 // POST /api/cache/clear - Vider le cache (utile après mise à jour manuelle du JSON)
-router.post("/api/cache/clear", (req, res) => {
+router.post("/api/cache/clear", requireSuiviWrite, (req, res) => {
   try {
     dataManager.clearCache();
     res.json({
@@ -685,7 +882,7 @@ router.post("/api/cache/clear", (req, res) => {
 });
 
 // GET /api/health - Vérifier la santé de l'API et la connexion FTP
-router.get("/api/health", async (req, res) => {
+router.get("/api/health", requireSuiviRead, async (req, res) => {
   try {
     await dataManager.getData(false); // Test de connexion
     res.json({

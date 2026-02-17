@@ -3,6 +3,7 @@
 import express from "express";
 import multer from "multer";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
@@ -17,7 +18,32 @@ dotenv.config();
 // routeur Express separe
 const router = express.Router();
 
-router.use(cors());
+const FORM_ALLOWED_ORIGINS = String(
+  process.env.FORM_ALLOWED_ORIGINS || "https://documentsdurand.fr,https://www.documentsdurand.fr"
+)
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
+
+const formCorsOptions = {
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (FORM_ALLOWED_ORIGINS.includes(String(origin).trim())) return cb(null, true);
+    return cb(null, false);
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+};
+
+const submitLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: Number(process.env.FORM_SUBMIT_RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Trop de requetes, reessayez plus tard.",
+});
+
+router.use(cors(formCorsOptions));
+router.options("*", cors(formCorsOptions));
 router.use(express.urlencoded({ extended: true }));
 router.use(express.json({ limit: "15mb" }));
 
@@ -139,7 +165,7 @@ function accuseHtml(data = {}) {
 }
 
 // Envoi du formulaire (stockage + mise en file d'attente email)
-router.post("/submit-form", upload.array("fichiers[]", 10), async (req, res) => {
+router.post("/submit-form", submitLimiter, upload.array("fichiers[]", 10), async (req, res) => {
   const formData = req.body || {};
   const files = Array.isArray(req.files) ? req.files : [];
 
@@ -147,6 +173,7 @@ router.post("/submit-form", upload.array("fichiers[]", 10), async (req, res) => 
     filename: f.originalname,
     path: f.path,
   }));
+  const attachmentPaths = attachments.map((a) => a.path).filter(Boolean);
 
   try {
     const to =
@@ -182,7 +209,7 @@ router.post("/submit-form", upload.array("fichiers[]", 10), async (req, res) => 
         fournisseur: (formData.fournisseur || "").slice(0, 80),
         reference: (formData.reference || "").slice(0, 80),
       },
-      cleanupPaths: [],
+      cleanupPaths: formData.email ? [] : attachmentPaths,
     });
 
     if (formData.email) {
@@ -197,7 +224,7 @@ router.post("/submit-form", upload.array("fichiers[]", 10), async (req, res) => 
         },
         formType: "creation-reference-vl",
         meta: { kind: "demandeur", demandeur: formData.email || "" },
-        cleanupPaths: [],
+        cleanupPaths: attachmentPaths,
       });
     }
 

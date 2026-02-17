@@ -30,18 +30,33 @@ function clearAuthed() {
 
 // Redirige vers login si pas connecte
 function requireAuth() {
-  if (isAuthed()) return;
+  if (!isAuthed()) {
+    const prefix = getPrefix();
+    const dest = window.location.pathname + window.location.search + window.location.hash;
+    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
+    return;
+  }
 
   const prefix = getPrefix();
   const dest = window.location.pathname + window.location.search + window.location.hash;
-
-  window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
+  fetch("/api/site/session", {
+    credentials: "same-origin",
+    cache: "no-store"
+  }).then((res) => {
+    if (res.ok) return;
+    clearAuthed();
+    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
+  }).catch(() => {
+    clearAuthed();
+    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
+  });
 }
 
 // Verifie le mot de passe via l'API
 function loginWith(pwd) {
   return fetch(LOGIN_ENDPOINT, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password: String(pwd || "") })
   })
@@ -58,7 +73,12 @@ function loginWith(pwd) {
 // Deconnexion simple
 function logout() {
   clearAuthed();
-  window.location.href = getPrefix() + "login.html";
+  fetch("/api/site/logout", {
+    method: "POST",
+    credentials: "same-origin"
+  }).catch(() => {}).finally(() => {
+    window.location.href = getPrefix() + "login.html";
+  });
 }
 
 // Lit le param redirect en securise
@@ -67,6 +87,9 @@ function getRedirectTarget() {
   const r = qs.get("redirect");
   if (!r) return null;
   if (/^https?:\/\//i.test(r)) return null;
+  if (r.startsWith("//")) return null;
+  if (!r.startsWith("/")) return null;
+  if (r.includes("\0")) return null;
   return r;
 }
 

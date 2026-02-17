@@ -1,6 +1,3 @@
-// Module garantie - Routes et fonctions pour la gestion des demandes de garantie
-// Corrigé et complété
-
 import express from "express";
 import multer from "multer";
 import fs from "fs";
@@ -12,6 +9,8 @@ import { fileURLToPath } from "url";
 import PDFDocument from "pdfkit";
 import axios from "axios";
 import ExcelJS from "exceljs";
+import rateLimit from "express-rate-limit";
+import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,9 +21,9 @@ console.log("[GARANTIE][CONF][MAIL] transporter =", transporter ? "OK" : "ABSENT
 
 // Constantes
 const STATUTS = {
-  ENREGISTRE: "enregistré",
-  ACCEPTE: "accepté",
-  REFUSE: "refusé",
+  ENREGISTRE: "enregistrÃ©",
+  ACCEPTE: "acceptÃ©",
+  REFUSE: "refusÃ©",
   ATTENTE_INFO: "Avoir Commercial",
   ATTENTE_MO: "Attente MO",
 };
@@ -37,7 +36,7 @@ const MAGASINS = [
 
 // ---- Helpers ENV (compat Render/Unix) ----
 // Render (et beaucoup d'UI) n'acceptent pas les noms de variables avec des tirets.
-// Donc on accepte plusieurs noms pour une même config (ex: "admin-pass" ET "ADMIN_PASS").
+// Donc on accepte plusieurs noms pour une mÃªme config (ex: "admin-pass" ET "ADMIN_PASS").
 function envGetAny(names = []) {
   for (const n of names) {
     if (!n) continue;
@@ -70,8 +69,70 @@ function limitedKeyLegacy(name) { return "magasin-" + name + "-limited"; }
 function limitedKeyEnv(name) { return "MAGASIN_" + normEnvChunk(name) + "_LIMITED"; }
 
 function trimPw(pw) {
-  // sécurise les copier/coller (espaces, retours chariot)
+  // sÃ©curise les copier/coller (espaces, retours chariot)
   return String(pw || "").replace(/\r?\n/g, "").trim();
+}
+
+const garantieLoginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: Number(process.env.GARANTIE_LOGIN_RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Trop de tentatives, reessayez plus tard." },
+});
+
+function getGarantieAuth(req) {
+  return req.session?.garantieAuth || null;
+}
+
+function canAccessMagasin(auth, magasin) {
+  if (!auth) return false;
+  if (auth.isSuper || auth.isAdmin) return true;
+
+  const target = String(magasin || "").trim().toLowerCase();
+  if (!target) return false;
+
+  if (Array.isArray(auth.multiMagasins) && auth.multiMagasins.length) {
+    return auth.multiMagasins.some((m) => String(m || "").trim().toLowerCase() === target);
+  }
+  if (auth.magasin) {
+    return String(auth.magasin).trim().toLowerCase() === target;
+  }
+  return false;
+}
+
+function canAccessDossier(auth, dossier) {
+  return canAccessMagasin(auth, dossier?.magasin);
+}
+
+function requireGarantieRead(req, res, next) {
+  const auth = getGarantieAuth(req);
+  if (!auth) return res.status(401).json({ success: false, message: "Authentification requise." });
+  req.garantieAuth = auth;
+  return next();
+}
+
+function requireGarantieWrite(req, res, next) {
+  const auth = getGarantieAuth(req);
+  if (!auth) return res.status(401).json({ success: false, message: "Authentification requise." });
+  if (auth.isLimited) {
+    return res.status(403).json({ success: false, message: "Acces en lecture seule." });
+  }
+  req.garantieAuth = auth;
+  return next();
+}
+
+function requireGarantieSuper(req, res, next) {
+  const auth = getGarantieAuth(req);
+  if (!auth) return res.status(401).json({ success: false, message: "Authentification requise." });
+  if (!auth.isSuper) {
+    return res.status(403).json({
+      success: false,
+      message: "Suppression autorisee uniquement pour le super admin."
+    });
+  }
+  req.garantieAuth = auth;
+  return next();
 }
 
 // Fonction pour parser JSON depuis env
@@ -130,7 +191,61 @@ const UPLOADS_FTP = path.posix.join(FTP_BACKUP_FOLDER, "uploads");
 // Configuration Multer pour upload de fichiers
 const TEMP_UPLOAD_DIR = path.join(__dirname, "..", "temp_uploads_garantie");
 try { fs.mkdirSync(TEMP_UPLOAD_DIR, { recursive: true }); } catch {}
-const upload = multer({ dest: TEMP_UPLOAD_DIR });
+const GARANTIE_ALLOWED_MIME = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/bmp",
+  "image/tiff",
+  "text/plain",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/zip",
+  "application/x-zip-compressed",
+]);
+const GARANTIE_ALLOWED_EXT = new Set([
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".heic",
+  ".bmp",
+  ".tif",
+  ".tiff",
+  ".txt",
+  ".csv",
+  ".xls",
+  ".xlsx",
+  ".doc",
+  ".docx",
+  ".zip",
+]);
+
+function isAllowedGarantieFile(file) {
+  const mimeType = String(file?.mimetype || "").toLowerCase();
+  const ext = String(path.extname(file?.originalname || "") || "").toLowerCase();
+  const mimeAllowed = GARANTIE_ALLOWED_MIME.has(mimeType) || mimeType === "application/octet-stream";
+  return mimeAllowed && GARANTIE_ALLOWED_EXT.has(ext);
+}
+
+const upload = multer({
+  dest: TEMP_UPLOAD_DIR,
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+    files: 20,
+  },
+  fileFilter: (req, file, cb) => {
+    if (isAllowedGarantieFile(file)) return cb(null, true);
+    req.fileValidationError = "file_type_not_allowed";
+    return cb(null, false);
+  },
+});
 
 async function getFTPClient() {
   const client = new ftp.Client(10000);
@@ -198,29 +313,76 @@ async function readDataFTP() {
 // Ecrit demandes.json sur le FTP avec les nouvelles donnees.
 async function writeDataFTP(data) {
   let client;
+  const rand = Math.round(Math.random() * 1e9);
+
+  // tmp local unique (évite collision si 2 saves en même temps)
+  const tmpLocal = path.join(__dirname, `temp_demandes_${Date.now()}_${rand}.json`);
+
+  // tmp distant unique puis rename vers demandes.json
+  const remoteDir = FTP_BACKUP_FOLDER;
+  const remoteFinal = JSON_FILE_FTP;
+  const remoteTmp = path.posix.join(
+    remoteDir,
+    `demandes.json.tmp-${Date.now()}-${rand}`
+  );
+
   try {
     client = await getFTPClient();
-  } catch (err) {
-    console.error("[FTP] Impossible de se connecter pour écrire demandes.json :", err.message || err);
-    throw new Error("Impossible de se connecter au FTP pour sauvegarder les données.");
-  }
-  const tmp = path.join(__dirname, "temp_demandes.json");
-  try {
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-    await client.ensureDir(FTP_BACKUP_FOLDER);
-    await client.uploadFrom(tmp, JSON_FILE_FTP);
-    console.log(`[SAVE] demandes.json mis à jour (${data.length} dossiers)`);
-  } catch (err) {
-    const msg = err && err.message ? err.message : String(err);
-    if (msg.includes("Server sent FIN packet unexpectedly")) {
-      console.error("[FTP] FIN inattendu pendant l'écriture de demandes.json :", msg);
-    } else {
-      console.error("[FTP] Erreur lors de l'écriture de demandes.json :", msg);
+
+    // 1) Ecrit local
+    fs.writeFileSync(tmpLocal, JSON.stringify(data, null, 2), "utf8");
+
+    // hash local (preuve + debug)
+    const localBuf = fs.readFileSync(tmpLocal);
+    const localSha = crypto.createHash("sha256").update(localBuf).digest("hex");
+
+    // 2) Upload vers fichier tmp distant
+    await client.ensureDir(remoteDir);
+    await client.uploadFrom(tmpLocal, remoteTmp);
+
+    // 3) Remplacement “quasi-atomique”
+    // Certains FTP refusent rename over existing -> on supprime puis rename
+    try { await client.remove(remoteFinal).catch(() => {}); } catch {}
+    try {
+      await client.rename(remoteTmp, remoteFinal);
+    } catch (e) {
+      // fallback : upload direct vers final si rename indisponible
+      console.warn("[GARANTIE][FTP] rename tmp->final échoué, fallback upload direct:", e?.message || e);
+      await client.uploadFrom(tmpLocal, remoteFinal);
+      await client.remove(remoteTmp).catch(() => {});
     }
-    throw new Error("Erreur lors de la sauvegarde des données sur le FTP.");
+
+    // 4) Vérif : size + hash distant (download)
+    let size = 0;
+    try { size = await client.size(remoteFinal); } catch {}
+    if (!size || size < 10) {
+      throw new Error(`Ecriture FTP incertaine (size=${size})`);
+    }
+
+    const verifyLocal = path.join(__dirname, `verify_demandes_${Date.now()}_${rand}.json`);
+    try {
+      await client.downloadTo(verifyLocal, remoteFinal);
+      const remoteBuf = fs.readFileSync(verifyLocal);
+      const remoteSha = crypto.createHash("sha256").update(remoteBuf).digest("hex");
+if (localSha !== remoteSha) {
+  console.warn(
+    `[GARANTIE][SAVE] SHA différent mais sauvegarde probablement OK`,
+    { localSha, remoteSha }
+  );
+}
+
+    } finally {
+      try { fs.unlinkSync(verifyLocal); } catch {}
+    }
+
+    console.log(`[GARANTIE][SAVE] demandes.json OK (${Array.isArray(data) ? data.length : "?"} dossiers) size=${size}`);
+  } catch (err) {
+    console.error("[GARANTIE][SAVE] ECHEC demandes.json :", err?.message || err);
+    // IMPORTANT : on throw pour éviter les faux "success:true"
+    throw new Error(err?.message || "Erreur lors de la sauvegarde des données sur le FTP.");
   } finally {
-    try { fs.unlinkSync(tmp); } catch {}
-    if (client) client.close();
+    try { fs.unlinkSync(tmpLocal); } catch {}
+    try { client && client.close(); } catch {}
   }
 }
 
@@ -271,9 +433,9 @@ async function deleteFilesFromFTP(urls = []) {
       } catch (err) {
         const msg = err && err.message ? err.message : String(err);
         if (msg.includes("Server sent FIN packet unexpectedly")) {
-          console.warn("[FTP] FIN inattendu lors de la suppression (ignorée) :", remotePath, msg);
+          console.warn("[FTP] FIN inattendu lors de la suppression (ignorÃ©e) :", remotePath, msg);
         } else {
-          console.warn("[FTP] Erreur lors de la suppression du fichier (ignorée) :", remotePath, msg);
+          console.warn("[FTP] Erreur lors de la suppression du fichier (ignorÃ©e) :", remotePath, msg);
         }
       }
     }
@@ -316,10 +478,10 @@ async function streamFTPFileToRes(res, remotePath, fileName) {
     if (msg.includes("Server sent FIN packet unexpectedly")) {
       console.error("[FTP] FIN inattendu pendant le streaming du fichier :", remotePath, msg);
     } else {
-      console.error("[FTP] Erreur pendant le téléchargement du fichier :", remotePath, msg);
+      console.error("[FTP] Erreur pendant le tÃ©lÃ©chargement du fichier :", remotePath, msg);
     }
     if (!res.headersSent) {
-      res.status(500).send("Erreur lors du téléchargement du fichier.");
+      res.status(500).send("Erreur lors du tÃ©lÃ©chargement du fichier.");
     } else {
       res.end();
     }
@@ -335,7 +497,7 @@ async function fetchFilesFromFTP(fileObjs) {
   try {
     client = await getFTPClient();
   } catch (err) {
-    console.error("[FTP] Impossible de se connecter pour récupérer les pièces jointes :", err.message || err);
+    console.error("[FTP] Impossible de se connecter pour rÃ©cupÃ©rer les piÃ¨ces jointes :", err.message || err);
     return [];
   }
   const files = [];
@@ -351,9 +513,9 @@ async function fetchFilesFromFTP(fileObjs) {
       } catch (err) {
         const msg = err && err.message ? err.message : String(err);
         if (msg.includes("Server sent FIN packet unexpectedly")) {
-          console.warn("[FTP] FIN inattendu pendant le téléchargement d'une PJ (ignorée) :", remote, msg);
+          console.warn("[FTP] FIN inattendu pendant le tÃ©lÃ©chargement d'une PJ (ignorÃ©e) :", remote, msg);
         } else {
-          console.warn("[FTP] Erreur lors du téléchargement d'une PJ (ignorée) :", remote, msg);
+          console.warn("[FTP] Erreur lors du tÃ©lÃ©chargement d'une PJ (ignorÃ©e) :", remote, msg);
         }
       }
     }
@@ -415,8 +577,8 @@ async function creerPDFDemande(d, nomFichier) {
       doc.fontSize(11).fillColor("#000");
       const dateStrFr = d.date ? new Date(d.date).toLocaleDateString("fr-FR") : "";
       const numero = d.numero_dossier || "";
-      doc.text("Créé le : " + dateStrFr, PAGE_W - 150, y0 + 6, { width: 120 });
-      doc.text("Numéro de dossier : " + numero, PAGE_W - 150, y0 + 20, { width: 120 });
+      doc.text("CrÃ©Ã© le : " + dateStrFr, PAGE_W - 150, y0 + 6, { width: 120 });
+      doc.text("NumÃ©ro de dossier : " + numero, PAGE_W - 150, y0 + 20, { width: 120 });
       let y = y0 + logoH + 32;
       const tableW = PAGE_W - 2 * x0;
       const colLabelW = 155;
@@ -429,21 +591,21 @@ async function creerPDFDemande(d, nomFichier) {
         ["Email", d.email || ""],
         ["Magasin", d.magasin || "", "rowline"],
         ["Marque du produit", d.marque_produit || ""],
-        ["Produit concerné", d.produit_concerne || ""],
-        ["Référence de la pièce", d.reference_piece || ""],
-        ["Quantité posée", d.quantite_posee || "", "rowline"],
+        ["Produit concernÃ©", d.produit_concerne || ""],
+        ["RÃ©fÃ©rence de la piÃ¨ce", d.reference_piece || ""],
+        ["QuantitÃ© posÃ©e", d.quantite_posee || "", "rowline"],
         ["Immatriculation", d.immatriculation || ""],
         ["Marque", d.marque_vehicule || ""],
-        ["Modèle", d.modele_vehicule || ""],
-        ["Numéro de série", d.num_serie || ""],
-        ["1ère immatriculation", formatDateJJMMAAAA(d.premiere_immat) || "", "rowline"],
+        ["ModÃ¨le", d.modele_vehicule || ""],
+        ["NumÃ©ro de sÃ©rie", d.num_serie || ""],
+        ["1Ã¨re immatriculation", formatDateJJMMAAAA(d.premiere_immat) || "", "rowline"],
         ["Date de pose", formatDateJJMMAAAA(d.date_pose) || ""],
         ["Date du constat", formatDateJJMMAAAA(d.date_constat) || ""],
-        ["Kilométrage à la pose", d.km_pose || ""],
-        ["Kilométrage au constat", d.km_constat || ""],
-        ["N° BL 1ère Vente", d.bl_pose || ""],
-        ["N° BL 2ème Vente", d.bl_constat || "", "rowline"],
-        ["Problème rencontré", (d.probleme_rencontre||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n"), "multiline"]
+        ["KilomÃ©trage Ã  la pose", d.km_pose || ""],
+        ["KilomÃ©trage au constat", d.km_constat || ""],
+        ["NÂ° BL 1Ã¨re Vente", d.bl_pose || ""],
+        ["NÂ° BL 2Ã¨me Vente", d.bl_constat || "", "rowline"],
+        ["ProblÃ¨me rencontrÃ©", (d.probleme_rencontre||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n"), "multiline"]
       ];
       const sidePad = 16;
       const cornerRad = 14;
@@ -489,6 +651,9 @@ async function creerPDFDemande(d, nomFichier) {
 // API: cree une demande, upload, PDF, mails, sauvegarde.
 router.post("/demandes", upload.array("document"), async (req, res) => {
   try {
+    if (req.fileValidationError) {
+      return res.status(400).json({ success: false, message: "Type de fichier non autorise." });
+    }
     let data = await readDataFTP();
     if (!Array.isArray(data)) data = [];
     const d = req.body;
@@ -540,19 +705,19 @@ try {
       try {
         const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;">
           Bonjour,<br><br>
-          Votre demande de garantie a été envoyée avec succès.<br>
-          Merci d’imprimer et de joindre le fichier PDF ci-joint avec votre pièce.<br><br>
+          Votre demande de garantie a Ã©tÃ© envoyÃ©e avec succÃ¨s.<br>
+          Merci dâ€™imprimer et de joindre le fichier PDF ci-joint avec votre piÃ¨ce.<br><br>
           <b>Magasin :</b> ${d.magasin || ""}<br>
           <b>Produit :</b> ${d.produit_concerne || ""}<br>
-          <b>Référence :</b> ${d.reference_piece || ""}<br><br>
+          <b>RÃ©fÃ©rence :</b> ${d.reference_piece || ""}<br><br>
           Cordialement<br>
-          L'équipe Durand Services Garantie.
+          L'Ã©quipe Durand Services Garantie.
         </div>`;
 
         await transporter.sendMail({
           from: `Durand Services Garantie <${fromEmail}>`,
           to: toClient,
-          subject: "Demande de Garantie Envoyée",
+          subject: "Demande de Garantie EnvoyÃ©e",
           html,
           attachments: [{ filename: nomFichier, path: tmpPdfPath, contentType: "application/pdf" }]
         });
@@ -583,13 +748,13 @@ try {
           to: respMail,
           subject: `Nouvelle demande de garantie`,
           html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;">
-                  <b>Nouvelle demande reçue pour le magasin ${d.magasin}.</b><br>
+                  <b>Nouvelle demande reÃ§ue pour le magasin ${d.magasin}.</b><br>
                   Client : ${d.nom || ""} (${d.email || ""})<br>
                   Marque du produit : ${d.marque_produit || ""}<br>
                   Produit : ${d.produit_concerne || ""}<br>
-                  Référence : ${d.reference_piece || ""}<br>
+                  RÃ©fÃ©rence : ${d.reference_piece || ""}<br>
                   Date : ${(new Date()).toLocaleDateString("fr-FR")}<br><br>
-                  Le PDF de demande est joint à ce mail.
+                  Le PDF de demande est joint Ã  ce mail.
                 </div>`,
           attachments: finalAtt
         });
@@ -617,14 +782,21 @@ res.json({ success: true, mailClientOk, mailMagasinOk });
 
 // API admin: met a jour un dossier (statut, reponse, PJ).
 router.post("/admin/dossier/:id",
+  requireGarantieWrite,
   upload.fields([{ name: "reponseFiles", maxCount: 10 }, { name: "documentsAjoutes", maxCount: 10 }]),
   async (req, res) => {
     try {
+      if (req.fileValidationError) {
+        return res.status(400).json({ success: false, message: "Type de fichier non autorise." });
+      }
       const { id } = req.params;
       let data = await readDataFTP();
       if (!Array.isArray(data)) data = [];
       const dossier = data.find(x => x.id === id);
       if (!dossier) return res.json({ success:false, message:"Dossier introuvable" });
+      if (!canAccessDossier(req.garantieAuth, dossier)) {
+        return res.status(403).json({ success: false, message: "Acces refuse pour ce magasin." });
+      }
       const oldStatut = dossier.statut;
       const oldReponse = dossier.reponse;
       const oldFilesLength = (dossier.reponseFiles||[]).length;
@@ -694,26 +866,26 @@ router.post("/admin/dossier/:id",
         mailDoitEtreEnvoye = true;
       }
       if (repRecue !== undefined && repRecue !== oldReponse) {
-        changes.push("réponse");
+        changes.push("rÃ©ponse");
         mailDoitEtreEnvoye = true;
       }
       if (req.files && req.files.reponseFiles && req.files.reponseFiles.length > 0 && (dossier.reponseFiles.length !== oldFilesLength)) {
-        changes.push("pièce jointe");
+        changes.push("piÃ¨ce jointe");
         mailDoitEtreEnvoye = true;
       }
       if (mailDoitEtreEnvoye && dossier.email) {
         const attachments = await fetchFilesFromFTP(dossier.reponseFiles);
         const html = `<div style="font-family:sans-serif;">
           Bonjour,<br>
-          Votre dossier de garantie a été mis à jour.<br>
+          Votre dossier de garantie a Ã©tÃ© mis Ã  jour.<br>
           Produit : ${dossier.produit_concerne || ""}<br>
           Date : ${(new Date()).toLocaleDateString("fr-FR")}<br>
           <ul>
             ${changes.includes("statut") ? `<li><b>Nouveau statut :</b> ${dossier.statut}</li>` : ""}
-            ${changes.includes("réponse") ? `<li><b>Réponse :</b> ${dossier.reponse || ""}</li>` : ""}
-            ${changes.includes("pièce jointe") ? `<li><b>Documents ajoutés à votre dossier.</b></li>` : ""}
+            ${changes.includes("rÃ©ponse") ? `<li><b>RÃ©ponse :</b> ${dossier.reponse || ""}</li>` : ""}
+            ${changes.includes("piÃ¨ce jointe") ? `<li><b>Documents ajoutÃ©s Ã  votre dossier.</b></li>` : ""}
           </ul>
-          <br><br>L'équipe Garantie Durand<br><br>
+          <br><br>L'Ã©quipe Garantie Durand<br><br>
         </div>`;
         if (!transporter) {
           console.error("[MAIL] SMTP not configured. Unable to send dossier update.");
@@ -721,7 +893,7 @@ router.post("/admin/dossier/:id",
           await transporter.sendMail({
             from: `Garantie Durand Services <${fromEmail}>`,
             to: dossier.email,
-            subject: `Mise à jour dossier garantie Durand Services`,
+            subject: `Mise Ã  jour dossier garantie Durand Services`,
             html,
             attachments: attachments.map(f=>({ filename: f.filename, path: f.path }))
           });
@@ -738,9 +910,13 @@ router.post("/admin/dossier/:id",
 
 // API admin: envoie le dossier complet au fournisseur.
 router.post("/admin/envoyer-fournisseur/:id",
+  requireGarantieWrite,
   upload.fields([{ name: "fichiers", maxCount: 20 }, { name: "formulaire", maxCount: 1 }]),
   async (req, res) => {
     try {
+      if (req.fileValidationError) {
+        return res.status(400).json({ success: false, message: "Type de fichier non autorise." });
+      }
       const { id } = req.params;
       const fournisseur = (req.body && req.body.fournisseur) ? String(req.body.fournisseur) : "";
       const emailDest = FOURNISSEUR_MAILS[fournisseur] || "";
@@ -749,6 +925,9 @@ router.post("/admin/envoyer-fournisseur/:id",
       if (!Array.isArray(data)) data = [];
       const dossier = data.find(x => x.id === id);
       if (!dossier) return res.json({ success:false, message:"Dossier introuvable" });
+      if (!canAccessDossier(req.garantieAuth, dossier)) {
+        return res.status(403).json({ success: false, message: "Acces refuse pour ce magasin." });
+      }
       const clientNom = (dossier.nom || "Client").replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
       let dateStr = "";
       if (dossier.date) {
@@ -773,12 +952,12 @@ router.post("/admin/envoyer-fournisseur/:id",
       const html = `<div style="font-family:sans-serif;">
         <p>Bonjour,</p>
         <p>Vous trouverez ci-joint une demande de garantie pour le produit&nbsp;: <strong>${dossier.produit_concerne || ''}</strong>.</p>
-        <p><strong>Référence produit :</strong> ${dossier.reference_piece || ''}</p>
+        <p><strong>RÃ©fÃ©rence produit :</strong> ${dossier.reference_piece || ''}</p>
         ${adminMsg ? `<p>${adminMsg.replace(/\n/g,'<br>')}</p>` : ''}
         <p style="margin-top:24px;font-weight:bold;">
-          Merci de répondre à l'adresse mail : <a href="mailto:${magasinEmail}" style="color:#004080;text-decoration:underline;">${magasinEmail}</a>
+          Merci de rÃ©pondre Ã  l'adresse mail : <a href="mailto:${magasinEmail}" style="color:#004080;text-decoration:underline;">${magasinEmail}</a>
         </p>
-        <p>Cordialement,<br>L'équipe Garantie Durand Services</p>
+        <p>Cordialement,<br>L'Ã©quipe Garantie Durand Services</p>
       </div>`;
       if (!transporter) {
         console.error("[MAIL] SMTP not configured. Unable to send supplier email.");
@@ -810,13 +989,24 @@ router.post("/admin/envoyer-fournisseur/:id",
 );
 
 // API admin: met a jour les champs editables du dossier.
-router.post("/admin/completer-dossier/:id", async (req, res) => {
+router.post("/admin/completer-dossier/:id", requireGarantieWrite, async (req, res) => {
   try {
     const { id } = req.params;
-    let data = await readDataFTP();
-    if (!Array.isArray(data)) data = [];
-    const dossier = data.find(x => x.id === id);
-    if (!dossier) return res.json({ success:false, message:"Dossier introuvable" });
+const cleanId = decodeURIComponent(String(id || "")).trim();
+
+let data = await readDataFTP();
+if (!Array.isArray(data)) data = [];
+
+const dossier = data.find(x => String(x.id || "").trim() === cleanId);
+
+if (!dossier) {
+  // debug utile (à garder en prod, ça ne fuite rien de sensible)
+  console.warn("[GARANTIE] Dossier introuvable", { cleanId, sampleIds: data.slice(0, 5).map(d => d.id) });
+  return res.json({ success:false, message:"Dossier introuvable" });
+}
+    if (!canAccessDossier(req.garantieAuth, dossier)) {
+      return res.status(403).json({ success: false, message: "Acces refuse pour ce magasin." });
+    }
     const editableFields = [
       "nom","numero_compte_client","email","magasin","marque_produit","produit_concerne",
       "reference_piece","quantite_posee","immatriculation",
@@ -854,15 +1044,17 @@ router.get("/templates/:name", (req, res) => {
     "Formulaire_SEIM.pdf": path.join(__dirname, "formulaire", "Formulaire_SEIM.pdf"),
   };
   const filePath = allowed[req.params.name];
-  if (!filePath) return res.status(404).send("Formulaire non trouvé");
+  if (!filePath) return res.status(404).send("Formulaire non trouvÃ©");
   res.sendFile(filePath);
 });
 
 // API admin: renvoie la liste des dossiers.
-router.get("/admin/dossiers", async (_req, res) => {
+router.get("/admin/dossiers", requireGarantieRead, async (req, res) => {
   try {
     const data = await readDataFTP();
-    res.json(data);
+    const dossiers = Array.isArray(data) ? data : [];
+    const filtered = dossiers.filter((d) => canAccessDossier(req.garantieAuth, d));
+    res.json(filtered);
   } catch (err) {
     console.error("Erreur /api/admin/dossiers :", err.message || err);
     res.status(500).json([]);
@@ -913,142 +1105,176 @@ router.get("/download/:file", async (req, res) => {
 });
 
 // Auth admin simple par mot de passe (variables d'env).
-router.post("/admin/login", (req, res) => {
-  const pw = trimPw((req.body && req.body.password) ? req.body.password : "");
+router.post("/admin/login", garantieLoginLimiter, (req, res) => {
+  const pw = trimPw(req.body?.password || "");
+  let granted = null;
 
   // Super-admin (toutes actions)
   const superPass = trimPw(envGetAny(["superadmin-pass", "SUPERADMIN_PASS", "GARANTIE_SUPERADMIN_PASS"]));
   if (superPass && pw === superPass) {
-    return res.json({
-      success: true,
+    granted = {
       isSuper: true,
       isAdmin: true,
       isLimited: false,
       magasin: null,
-      multiMagasins: null
-    });
+      multiMagasins: null,
+      defaultMagasin: null,
+    };
   }
 
   // Admin (gestion dossiers, pas suppression)
-  const adminPass = trimPw(envGetAny(["admin-pass", "ADMIN_PASS", "GARANTIE_ADMIN_PASS"]));
-  if (adminPass && pw === adminPass) {
-    return res.json({
-      success: true,
-      isSuper: false,
-      isAdmin: true,
-      isLimited: false,
-      magasin: null,
-      multiMagasins: null
-    });
-  }
-
-  // Profils "limited" (multi magasins / lecture seule selon règles)
-  const remondLimited = trimPw(envGetAny(["magasin-Remond-limited", "MAGASIN_REMOND_LIMITED"]));
-  if (remondLimited && pw === remondLimited) {
-    return res.json({
-      success: true,
-      isSuper: false,
-      isAdmin: false,
-      isLimited: true,
-      magasin: null,
-      multiMagasins: ["Gleize", "Les Echets", "Chassieu"],
-      defaultMagasin: "Remond"
-    });
-  }
-
-  const castyLimited = trimPw(envGetAny(["magasin-Casty-limited", "MAGASIN_CASTY_LIMITED"]));
-  if (castyLimited && pw === castyLimited) {
-    return res.json({
-      success: true,
-      isSuper: false,
-      isAdmin: false,
-      isLimited: true,
-      magasin: null,
-      multiMagasins: ["Gleize", "Les Echets"],
-      defaultMagasin: "Les Echets"
-    });
-  }
-
-  const barretLimited = trimPw(envGetAny(["magasin-Barret-limited", "MAGASIN_BARRET_LIMITED"]));
-  if (barretLimited && pw === barretLimited) {
-    return res.json({
-      success: true,
-      isSuper: false,
-      isAdmin: false,
-      isLimited: true,
-      magasin: "Gleize",
-      multiMagasins: null,
-      defaultMagasin: "Gleize"
-    });
-  }
-
-  const chassieuLimited = trimPw(envGetAny(["magasin-Chassieu-limited", "MAGASIN_CHASSIEU_LIMITED"]));
-  if (chassieuLimited && pw === chassieuLimited) {
-    return res.json({
-      success: true,
-      isSuper: false,
-      isAdmin: false,
-      isLimited: true,
-      magasin: "Chassieu",
-      multiMagasins: null,
-      defaultMagasin: "Chassieu"
-    });
-  }
-
-  // Mots de passe "magasin-XXX-pass"
-  for (const magasin of MAGASINS) {
-    const legacy = magasinKeyLegacy(magasin);
-    const modern = magasinKeyEnv(magasin);
-    const expected = trimPw(envGetAny([legacy, modern]));
-    if (expected && pw === expected) {
-      return res.json({
-        success: true,
+  if (!granted) {
+    const adminPass = trimPw(envGetAny(["admin-pass", "ADMIN_PASS", "GARANTIE_ADMIN_PASS"]));
+    if (adminPass && pw === adminPass) {
+      granted = {
         isSuper: false,
-        isAdmin: false,
+        isAdmin: true,
         isLimited: false,
-        magasin,
-        multiMagasins: null
-      });
+        magasin: null,
+        multiMagasins: null,
+        defaultMagasin: null,
+      };
     }
   }
 
-    // Diagnostic optionnel (sans révéler les mots de passe) : activer DEBUG_AUTH=1
-  if (String(process.env.DEBUG_AUTH || "").trim() === "1") {
-    const diag = {
-      hasSuperPass: Boolean(trimPw(envGetAny(["superadmin-pass","SUPERADMIN_PASS","GARANTIE_SUPERADMIN_PASS"]))),
-      hasAdminPass: Boolean(trimPw(envGetAny(["admin-pass","ADMIN_PASS","GARANTIE_ADMIN_PASS"]))),
-      hasRemondLimited: Boolean(trimPw(envGetAny(["magasin-Remond-limited","MAGASIN_REMOND_LIMITED"]))),
-      hasCastyLimited: Boolean(trimPw(envGetAny(["magasin-Casty-limited","MAGASIN_CASTY_LIMITED"]))),
-      hasBarretLimited: Boolean(trimPw(envGetAny(["magasin-Barret-limited","MAGASIN_BARRET_LIMITED"]))),
-      hasChassieuLimited: Boolean(trimPw(envGetAny(["magasin-Chassieu-limited","MAGASIN_CHASSIEU_LIMITED"]))),
-      magasinsConfigured: MAGASINS.filter(m => Boolean(trimPw(envGetAny([magasinKeyLegacy(m), magasinKeyEnv(m)])))),
-      sampleExpectedEnvNames: {
-        annemasse: [magasinKeyLegacy("Annemasse"), magasinKeyEnv("Annemasse")],
-        bourgoinJallieu: [magasinKeyLegacy("Bourgoin-Jallieu"), magasinKeyEnv("Bourgoin-Jallieu")],
-        saintMartinDheres: [magasinKeyLegacy("Saint-martin-d-heres"), magasinKeyEnv("Saint-martin-d-heres")],
-      }
-    };
-    return res.status(401).json({ success:false, message:"Mot de passe incorrect", diag });
+  // Profils "limited" (multi magasins / lecture seule selon regles)
+  if (!granted) {
+    const remondLimited = trimPw(envGetAny(["magasin-Remond-limited", "MAGASIN_REMOND_LIMITED"]));
+    if (remondLimited && pw === remondLimited) {
+      granted = {
+        isSuper: false,
+        isAdmin: false,
+        isLimited: true,
+        magasin: null,
+        multiMagasins: ["Gleize", "Les Echets", "Chassieu"],
+        defaultMagasin: "Remond",
+      };
+    }
   }
 
-  return res.status(401).json({ success: false, message: "Mot de passe incorrect" });
+  if (!granted) {
+    const castyLimited = trimPw(envGetAny(["magasin-Casty-limited", "MAGASIN_CASTY_LIMITED"]));
+    if (castyLimited && pw === castyLimited) {
+      granted = {
+        isSuper: false,
+        isAdmin: false,
+        isLimited: true,
+        magasin: null,
+        multiMagasins: ["Gleize", "Les Echets"],
+        defaultMagasin: "Les Echets",
+      };
+    }
+  }
+
+  if (!granted) {
+    const barretLimited = trimPw(envGetAny(["magasin-Barret-limited", "MAGASIN_BARRET_LIMITED"]));
+    if (barretLimited && pw === barretLimited) {
+      granted = {
+        isSuper: false,
+        isAdmin: false,
+        isLimited: true,
+        magasin: "Gleize",
+        multiMagasins: null,
+        defaultMagasin: "Gleize",
+      };
+    }
+  }
+
+  if (!granted) {
+    const chassieuLimited = trimPw(envGetAny(["magasin-Chassieu-limited", "MAGASIN_CHASSIEU_LIMITED"]));
+    if (chassieuLimited && pw === chassieuLimited) {
+      granted = {
+        isSuper: false,
+        isAdmin: false,
+        isLimited: true,
+        magasin: "Chassieu",
+        multiMagasins: null,
+        defaultMagasin: "Chassieu",
+      };
+    }
+  }
+
+  // Mots de passe "magasin-XXX-pass"
+  if (!granted) {
+    for (const magasin of MAGASINS) {
+      const legacy = magasinKeyLegacy(magasin);
+      const modern = magasinKeyEnv(magasin);
+      const expected = trimPw(envGetAny([legacy, modern]));
+      if (expected && pw === expected) {
+        granted = {
+          isSuper: false,
+          isAdmin: false,
+          isLimited: false,
+          magasin,
+          multiMagasins: null,
+          defaultMagasin: null,
+        };
+        break;
+      }
+    }
+  }
+
+  if (!granted) {
+    // Diagnostic optionnel (sans reveler les mots de passe) : activer DEBUG_AUTH=1
+    if (String(process.env.DEBUG_AUTH || "").trim() === "1") {
+      const diag = {
+        hasSuperPass: Boolean(trimPw(envGetAny(["superadmin-pass","SUPERADMIN_PASS","GARANTIE_SUPERADMIN_PASS"]))),
+        hasAdminPass: Boolean(trimPw(envGetAny(["admin-pass","ADMIN_PASS","GARANTIE_ADMIN_PASS"]))),
+        hasRemondLimited: Boolean(trimPw(envGetAny(["magasin-Remond-limited","MAGASIN_REMOND_LIMITED"]))),
+        hasCastyLimited: Boolean(trimPw(envGetAny(["magasin-Casty-limited","MAGASIN_CASTY_LIMITED"]))),
+        hasBarretLimited: Boolean(trimPw(envGetAny(["magasin-Barret-limited","MAGASIN_BARRET_LIMITED"]))),
+        hasChassieuLimited: Boolean(trimPw(envGetAny(["magasin-Chassieu-limited","MAGASIN_CHASSIEU_LIMITED"]))),
+        magasinsConfigured: MAGASINS.filter((m) => Boolean(trimPw(envGetAny([magasinKeyLegacy(m), magasinKeyEnv(m)])))),
+        sampleExpectedEnvNames: {
+          annemasse: [magasinKeyLegacy("Annemasse"), magasinKeyEnv("Annemasse")],
+          bourgoinJallieu: [magasinKeyLegacy("Bourgoin-Jallieu"), magasinKeyEnv("Bourgoin-Jallieu")],
+          saintMartinDheres: [magasinKeyLegacy("Saint-martin-d-heres"), magasinKeyEnv("Saint-martin-d-heres")],
+        }
+      };
+      return res.status(401).json({ success:false, message:"Mot de passe incorrect", diag });
+    }
+    return res.status(401).json({ success: false, message: "Mot de passe incorrect" });
+  }
+
+  return req.session.regenerate((regenErr) => {
+    if (regenErr) {
+      return res.status(500).json({ success: false, message: "Session error" });
+    }
+    req.session.garantieAuth = {
+      ...granted,
+      loginAt: new Date().toISOString(),
+    };
+    return req.session.save((saveErr) => {
+      if (saveErr) {
+        return res.status(500).json({ success: false, message: "Session save failed" });
+      }
+      return res.json({ success: true, ...granted });
+    });
+  });
+});
+
+router.post("/admin/logout", requireGarantieRead, (req, res) => {
+  req.session.garantieAuth = null;
+  req.session.save(() => res.sendStatus(204));
 });
 
 
-
 // API admin: supprime une piece jointe d'un dossier.
-router.post("/admin/dossier/:id/delete-file", async (req, res) => {
+router.post("/admin/dossier/:id/delete-file", requireGarantieWrite, async (req, res) => {
   try {
     const { id } = req.params;
     const { section, url } = req.body || {};
     if (!section || !url) {
-      return res.json({ success: false, message: "Paramètres manquants." });
+      return res.json({ success: false, message: "ParamÃ¨tres manquants." });
     }
     let data = await readDataFTP();
     if (!Array.isArray(data)) data = [];
     const dossier = data.find(d => d.id === id);
     if (!dossier) {
       return res.json({ success: false, message: "Dossier introuvable." });
+    }
+    if (!canAccessDossier(req.garantieAuth, dossier)) {
+      return res.status(403).json({ success: false, message: "Acces refuse pour ce magasin." });
     }
     const allowed = ["files", "reponseFiles", "documentsAjoutes"];
     if (!allowed.includes(section)) {
@@ -1071,15 +1297,8 @@ router.post("/admin/dossier/:id/delete-file", async (req, res) => {
 });
 
 // API admin super: supprime le dossier et ses fichiers.
-router.delete("/admin/dossier/:id", async (req, res) => {
+router.delete("/admin/dossier/:id", requireGarantieSuper, async (req, res) => {
   try {
-    const isSuper = req.headers["x-superadmin"] === "1";
-    if (!isSuper) {
-      return res.status(403).json({
-        success: false,
-        message: "Suppression autorisée uniquement pour le super admin."
-      });
-    }
     const { id } = req.params;
     let data = await readDataFTP();
     if (!Array.isArray(data)) data = [];
@@ -1109,9 +1328,10 @@ router.delete("/admin/dossier/:id", async (req, res) => {
 });
 
 // API admin: export Excel des dossiers (annee optionnelle).
-router.get("/admin/export-excel", async (req, res) => {
+router.get("/admin/export-excel", requireGarantieRead, async (req, res) => {
   try {
-    const data = await readDataFTP();
+    const dataRaw = await readDataFTP();
+    const data = (Array.isArray(dataRaw) ? dataRaw : []).filter((d) => canAccessDossier(req.garantieAuth, d));
 
     const yearRaw = (req.query && req.query.year) ? String(req.query.year) : "";
     const year = yearRaw ? parseInt(yearRaw, 10) : NaN;
@@ -1128,14 +1348,14 @@ router.get("/admin/export-excel", async (req, res) => {
       { header: "Date", key: "date" },
       { header: "Magasin", key: "magasin" },
       { header: "Marque du produit", key: "marque_produit" },
-      { header: "Produit concerné", key: "produit_concerne" },
-      { header: "Référence de la pièce", key: "reference_piece" },
-      { header: "Problème rencontré", key: "probleme_rencontre" },
+      { header: "Produit concernÃ©", key: "produit_concerne" },
+      { header: "RÃ©fÃ©rence de la piÃ¨ce", key: "reference_piece" },
+      { header: "ProblÃ¨me rencontrÃ©", key: "probleme_rencontre" },
       { header: "Nom client", key: "nom" },
       { header: "Email", key: "email" },
       { header: "Statut", key: "statut" },
-      { header: "Réponse", key: "reponse" },
-      { header: "Numéro d'avoir", key: "numero_avoir" },
+      { header: "RÃ©ponse", key: "reponse" },
+      { header: "NumÃ©ro d'avoir", key: "numero_avoir" },
     ];
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(Number.isFinite(year) ? ("Demandes " + year) : "Demandes globales");
@@ -1159,7 +1379,7 @@ router.get("/admin/export-excel", async (req, res) => {
     res.end();
   } catch (err) {
     console.error("Erreur /api/admin/export-excel :", err.message || err);
-    if (!res.headersSent) res.status(500).send("Erreur lors de la génération du fichier Excel.");
+    if (!res.headersSent) res.status(500).send("Erreur lors de la gÃ©nÃ©ration du fichier Excel.");
   }
 });
 
@@ -1179,3 +1399,4 @@ router.get("/", (req, res) => {
 
 
 export default router;
+

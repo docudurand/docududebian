@@ -1055,6 +1055,10 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
 	let isLimited = false;
 	let defaultMagasin = null;
 
+    const __nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) =>
+      __nativeFetch(input, { credentials: "same-origin", ...init });
+
     let allDossiers = [];
     let ongletActif = "global";
     let dossierSelectionne = null;
@@ -1945,10 +1949,7 @@ function construireFormulaireEdition(d) {
       if (!confirm("Supprimer définitivement ce dossier ?")) return;
       const id = dossierSelectionne.id;
       fetch(apiUrl("/admin/dossier/" + encodeURIComponent(id)), {
-        method: "DELETE",
-        headers: {
-          "x-superadmin": isSuperAdmin ? "1" : ""
-        }
+        method: "DELETE"
       })
         .then(r => r.json())
         .then(json => {
