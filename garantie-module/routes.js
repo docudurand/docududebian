@@ -21,9 +21,9 @@ console.log("[GARANTIE][CONF][MAIL] transporter =", transporter ? "OK" : "ABSENT
 
 // Constantes
 const STATUTS = {
-  ENREGISTRE: "enregistrÃ©",
-  ACCEPTE: "acceptÃ©",
-  REFUSE: "refusÃ©",
+  ENREGISTRE: "enregistré",
+  ACCEPTE: "accepté",
+  REFUSE: "refusé",
   ATTENTE_INFO: "Avoir Commercial",
   ATTENTE_MO: "Attente MO",
 };
