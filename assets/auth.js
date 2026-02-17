@@ -1,6 +1,14 @@
-//pages publiques + login.html
+// pages publiques + login.html
 
 const AUTH_KEY = "dd_auth_ok_v1";
+const AUTH_TS_KEY = "dd_auth_ts_v1";
+
+// Durée de "souvenir" côté navigateur (30 jours)
+const AUTH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Ne pas ping le serveur à chaque page (1 fois / 10 minutes)
+const SESSION_CHECK_EVERY_MS = 10 * 60 * 1000;
+const LAST_CHECK_KEY = "dd_auth_last_check_v1";
 
 // Nom d'utilisateur fixe (pour l'autofill)
 const SITE_USERNAME = "durand";
@@ -8,48 +16,98 @@ const SITE_USERNAME = "durand";
 // verification mot de passe
 const LOGIN_ENDPOINT = "/api/site/login";
 
-// Prefix pour servir le site depuis un sous-chemin
 function getPrefix() {
   return (window.__SITE_PREFIX__ !== undefined) ? String(window.__SITE_PREFIX__) : "";
 }
 
-// Est-ce que la session est deja validee ?
+function nowMs() {
+  return Date.now();
+}
+
+// --- Persistant (localStorage) ---
 function isAuthed() {
-  return sessionStorage.getItem(AUTH_KEY) === "1";
+  try {
+    const ok = localStorage.getItem(AUTH_KEY) === "1";
+    if (!ok) return false;
+
+    const ts = Number(localStorage.getItem(AUTH_TS_KEY) || "0");
+    if (!Number.isFinite(ts) || ts <= 0) return false;
+
+    // expiré ?
+    if (nowMs() - ts > AUTH_TTL_MS) {
+      clearAuthed();
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-// Marque la session comme validee
 function setAuthed() {
-  sessionStorage.setItem(AUTH_KEY, "1");
+  try {
+    localStorage.setItem(AUTH_KEY, "1");
+    localStorage.setItem(AUTH_TS_KEY, String(nowMs()));
+  } catch {}
 }
 
-// Supprime la session
 function clearAuthed() {
-  sessionStorage.removeItem(AUTH_KEY);
+  try {
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(AUTH_TS_KEY);
+    localStorage.removeItem(LAST_CHECK_KEY);
+  } catch {}
+}
+
+function shouldCheckSession() {
+  try {
+    const last = Number(localStorage.getItem(LAST_CHECK_KEY) || "0");
+    if (!Number.isFinite(last) || last <= 0) return true;
+    return (nowMs() - last) > SESSION_CHECK_EVERY_MS;
+  } catch {
+    return true;
+  }
+}
+
+function markSessionChecked() {
+  try {
+    localStorage.setItem(LAST_CHECK_KEY, String(nowMs()));
+  } catch {}
 }
 
 // Redirige vers login si pas connecte
 function requireAuth() {
+  const prefix = getPrefix();
+  const dest = window.location.pathname + window.location.search + window.location.hash;
+
   if (!isAuthed()) {
-    const prefix = getPrefix();
-    const dest = window.location.pathname + window.location.search + window.location.hash;
     window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
     return;
   }
 
-  const prefix = getPrefix();
-  const dest = window.location.pathname + window.location.search + window.location.hash;
+  // Optionnel mais conseillé : vérif serveur, MAIS
+  // - pas à chaque page (throttle)
+  // - surtout : on NE LOGOUT PAS sur erreur réseau
+  if (!shouldCheckSession()) return;
+
   fetch("/api/site/session", {
     credentials: "same-origin",
     cache: "no-store"
-  }).then((res) => {
-    if (res.ok) return;
-    clearAuthed();
-    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
-  }).catch(() => {
-    clearAuthed();
-    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
-  });
+  })
+    .then((res) => {
+      markSessionChecked();
+
+      // On ne déconnecte que si le serveur confirme que la session est invalide
+      if (res.status === 401) {
+        clearAuthed();
+        window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
+      }
+    })
+    .catch(() => {
+      // IMPORTANT : ne rien faire. Pas de clearAuthed.
+      // Si le réseau a un micro souci, on garde la session locale.
+    });
 }
 
 // Verifie le mot de passe via l'API
@@ -70,7 +128,7 @@ function loginWith(pwd) {
     .catch(() => false);
 }
 
-// Deconnexion simple
+// Deconnexion
 function logout() {
   clearAuthed();
   fetch("/api/site/logout", {
@@ -81,7 +139,7 @@ function logout() {
   });
 }
 
-// Lit le param redirect en securise
+// Redirect param (sécurisé)
 function getRedirectTarget() {
   const qs = new URLSearchParams(window.location.search || "");
   const r = qs.get("redirect");
@@ -93,18 +151,12 @@ function getRedirectTarget() {
   return r;
 }
 
-// Redirection apres login
 function goAfterLogin() {
   const prefix = getPrefix();
   const target = getRedirectTarget();
-  if (target) {
-    window.location.href = target;
-  } else {
-    window.location.href = prefix + "index.html";
-  }
+  window.location.href = target ? target : (prefix + "index.html");
 }
 
-// Branche un formulaire de login
 function wireLoginForm(options = {}) {
   const {
     formId = "loginForm",
@@ -162,7 +214,6 @@ function wireLoginForm(options = {}) {
   });
 }
 
-// Expose les fonctions globalement
 window.requireAuth = requireAuth;
 window.loginWith = loginWith;
 window.logout = logout;
