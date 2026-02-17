@@ -36,7 +36,7 @@ const MAGASINS = [
 
 // ---- Helpers ENV (compat Render/Unix) ----
 // Render (et beaucoup d'UI) n'acceptent pas les noms de variables avec des tirets.
-// Donc on accepte plusieurs noms pour une mÃªme config (ex: "admin-pass" ET "ADMIN_PASS").
+// Donc on accepte plusieurs noms pour une même config (ex: "admin-pass" ET "ADMIN_PASS").
 function envGetAny(names = []) {
   for (const n of names) {
     if (!n) continue;
@@ -69,7 +69,7 @@ function limitedKeyLegacy(name) { return "magasin-" + name + "-limited"; }
 function limitedKeyEnv(name) { return "MAGASIN_" + normEnvChunk(name) + "_LIMITED"; }
 
 function trimPw(pw) {
-  // sÃ©curise les copier/coller (espaces, retours chariot)
+  // sécurise les copier/coller (espaces, retours chariot)
   return String(pw || "").replace(/\r?\n/g, "").trim();
 }
 
@@ -433,9 +433,9 @@ async function deleteFilesFromFTP(urls = []) {
       } catch (err) {
         const msg = err && err.message ? err.message : String(err);
         if (msg.includes("Server sent FIN packet unexpectedly")) {
-          console.warn("[FTP] FIN inattendu lors de la suppression (ignorÃ©e) :", remotePath, msg);
+          console.warn("[FTP] FIN inattendu lors de la suppression (ignorée) :", remotePath, msg);
         } else {
-          console.warn("[FTP] Erreur lors de la suppression du fichier (ignorÃ©e) :", remotePath, msg);
+          console.warn("[FTP] Erreur lors de la suppression du fichier (ignorée) :", remotePath, msg);
         }
       }
     }
@@ -478,10 +478,10 @@ async function streamFTPFileToRes(res, remotePath, fileName) {
     if (msg.includes("Server sent FIN packet unexpectedly")) {
       console.error("[FTP] FIN inattendu pendant le streaming du fichier :", remotePath, msg);
     } else {
-      console.error("[FTP] Erreur pendant le tÃ©lÃ©chargement du fichier :", remotePath, msg);
+      console.error("[FTP] Erreur pendant le téléchargement du fichier :", remotePath, msg);
     }
     if (!res.headersSent) {
-      res.status(500).send("Erreur lors du tÃ©lÃ©chargement du fichier.");
+      res.status(500).send("Erreur lors du téléchargement du fichier.");
     } else {
       res.end();
     }
@@ -497,7 +497,7 @@ async function fetchFilesFromFTP(fileObjs) {
   try {
     client = await getFTPClient();
   } catch (err) {
-    console.error("[FTP] Impossible de se connecter pour rÃ©cupÃ©rer les piÃ¨ces jointes :", err.message || err);
+    console.error("[FTP] Impossible de se connecter pour récupérer les pièces jointes :", err.message || err);
     return [];
   }
   const files = [];
@@ -513,9 +513,9 @@ async function fetchFilesFromFTP(fileObjs) {
       } catch (err) {
         const msg = err && err.message ? err.message : String(err);
         if (msg.includes("Server sent FIN packet unexpectedly")) {
-          console.warn("[FTP] FIN inattendu pendant le tÃ©lÃ©chargement d'une PJ (ignorÃ©e) :", remote, msg);
+          console.warn("[FTP] FIN inattendu pendant le téléchargement d'une PJ (ignorée) :", remote, msg);
         } else {
-          console.warn("[FTP] Erreur lors du tÃ©lÃ©chargement d'une PJ (ignorÃ©e) :", remote, msg);
+          console.warn("[FTP] Erreur lors du téléchargement d'une PJ (ignorée) :", remote, msg);
         }
       }
     }
@@ -577,8 +577,8 @@ async function creerPDFDemande(d, nomFichier) {
       doc.fontSize(11).fillColor("#000");
       const dateStrFr = d.date ? new Date(d.date).toLocaleDateString("fr-FR") : "";
       const numero = d.numero_dossier || "";
-      doc.text("CrÃ©Ã© le : " + dateStrFr, PAGE_W - 150, y0 + 6, { width: 120 });
-      doc.text("NumÃ©ro de dossier : " + numero, PAGE_W - 150, y0 + 20, { width: 120 });
+      doc.text("Créé le : " + dateStrFr, PAGE_W - 150, y0 + 6, { width: 120 });
+      doc.text("Numéro de dossier : " + numero, PAGE_W - 150, y0 + 20, { width: 120 });
       let y = y0 + logoH + 32;
       const tableW = PAGE_W - 2 * x0;
       const colLabelW = 155;
@@ -591,21 +591,21 @@ async function creerPDFDemande(d, nomFichier) {
         ["Email", d.email || ""],
         ["Magasin", d.magasin || "", "rowline"],
         ["Marque du produit", d.marque_produit || ""],
-        ["Produit concernÃ©", d.produit_concerne || ""],
-        ["RÃ©fÃ©rence de la piÃ¨ce", d.reference_piece || ""],
-        ["QuantitÃ© posÃ©e", d.quantite_posee || "", "rowline"],
+        ["Produit concerné", d.produit_concerne || ""],
+        ["Référence de la pièce", d.reference_piece || ""],
+        ["Quantité posée", d.quantite_posee || "", "rowline"],
         ["Immatriculation", d.immatriculation || ""],
         ["Marque", d.marque_vehicule || ""],
-        ["ModÃ¨le", d.modele_vehicule || ""],
-        ["NumÃ©ro de sÃ©rie", d.num_serie || ""],
-        ["1Ã¨re immatriculation", formatDateJJMMAAAA(d.premiere_immat) || "", "rowline"],
+        ["Modèle", d.modele_vehicule || ""],
+        ["Numéro de série", d.num_serie || ""],
+        ["1ère immatriculation", formatDateJJMMAAAA(d.premiere_immat) || "", "rowline"],
         ["Date de pose", formatDateJJMMAAAA(d.date_pose) || ""],
         ["Date du constat", formatDateJJMMAAAA(d.date_constat) || ""],
-        ["KilomÃ©trage Ã  la pose", d.km_pose || ""],
-        ["KilomÃ©trage au constat", d.km_constat || ""],
-        ["NÂ° BL 1Ã¨re Vente", d.bl_pose || ""],
-        ["NÂ° BL 2Ã¨me Vente", d.bl_constat || "", "rowline"],
-        ["ProblÃ¨me rencontrÃ©", (d.probleme_rencontre||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n"), "multiline"]
+        ["Kilométrage à la pose", d.km_pose || ""],
+        ["Kilométrage au constat", d.km_constat || ""],
+        ["N° BL 1ère Vente", d.bl_pose || ""],
+        ["N° BL 2ème Vente", d.bl_constat || "", "rowline"],
+        ["Problème rencontré", (d.probleme_rencontre||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n"), "multiline"]
       ];
       const sidePad = 16;
       const cornerRad = 14;
@@ -705,19 +705,19 @@ try {
       try {
         const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;">
           Bonjour,<br><br>
-          Votre demande de garantie a Ã©tÃ© envoyÃ©e avec succÃ¨s.<br>
-          Merci dâ€™imprimer et de joindre le fichier PDF ci-joint avec votre piÃ¨ce.<br><br>
+          Votre demande de garantie a été envoyée avec succès.<br>
+          Merci d’imprimer et de joindre le fichier PDF ci-joint avec votre pièce.<br><br>
           <b>Magasin :</b> ${d.magasin || ""}<br>
           <b>Produit :</b> ${d.produit_concerne || ""}<br>
-          <b>RÃ©fÃ©rence :</b> ${d.reference_piece || ""}<br><br>
+          <b>Référence :</b> ${d.reference_piece || ""}<br><br>
           Cordialement<br>
-          L'Ã©quipe Durand Services Garantie.
+          L'équipe Durand Services Garantie.
         </div>`;
 
         await transporter.sendMail({
           from: `Durand Services Garantie <${fromEmail}>`,
           to: toClient,
-          subject: "Demande de Garantie EnvoyÃ©e",
+          subject: "Demande de Garantie Envoyée",
           html,
           attachments: [{ filename: nomFichier, path: tmpPdfPath, contentType: "application/pdf" }]
         });
@@ -748,13 +748,13 @@ try {
           to: respMail,
           subject: `Nouvelle demande de garantie`,
           html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.45;">
-                  <b>Nouvelle demande reÃ§ue pour le magasin ${d.magasin}.</b><br>
+                  <b>Nouvelle demande reçue pour le magasin ${d.magasin}.</b><br>
                   Client : ${d.nom || ""} (${d.email || ""})<br>
                   Marque du produit : ${d.marque_produit || ""}<br>
                   Produit : ${d.produit_concerne || ""}<br>
-                  RÃ©fÃ©rence : ${d.reference_piece || ""}<br>
+                  Référence : ${d.reference_piece || ""}<br>
                   Date : ${(new Date()).toLocaleDateString("fr-FR")}<br><br>
-                  Le PDF de demande est joint Ã  ce mail.
+                  Le PDF de demande est joint à ce mail.
                 </div>`,
           attachments: finalAtt
         });
@@ -872,11 +872,11 @@ const statutRecu = rawStatut ? String(rawStatut).trim() : undefined;
         mailDoitEtreEnvoye = true;
       }
       if (repRecue !== undefined && repRecue !== oldReponse) {
-        changes.push("rÃ©ponse");
+        changes.push("réponse");
         mailDoitEtreEnvoye = true;
       }
       if (req.files && req.files.reponseFiles && req.files.reponseFiles.length > 0 && (dossier.reponseFiles.length !== oldFilesLength)) {
-        changes.push("piÃ¨ce jointe");
+        changes.push("pièce jointe");
         mailDoitEtreEnvoye = true;
       }
       if (mailDoitEtreEnvoye && dossier.email) {
@@ -888,8 +888,8 @@ const statutRecu = rawStatut ? String(rawStatut).trim() : undefined;
           Date : ${(new Date()).toLocaleDateString("fr-FR")}<br>
           <ul>
             ${changes.includes("statut") ? `<li><b>Nouveau statut :</b> ${dossier.statut}</li>` : ""}
-            ${changes.includes("rÃ©ponse") ? `<li><b>Réponse :</b> ${dossier.reponse || ""}</li>` : ""}
-            ${changes.includes("piÃ¨ce jointe") ? `<li><b>Documents ajoutés à votre dossier.</b></li>` : ""}
+            ${changes.includes("réponse") ? `<li><b>Réponse :</b> ${dossier.reponse || ""}</li>` : ""}
+            ${changes.includes("pièce jointe") ? `<li><b>Documents ajoutés à votre dossier.</b></li>` : ""}
           </ul>
           <br><br>L'équipe Garantie Durand<br><br>
         </div>`;
@@ -958,12 +958,12 @@ router.post("/admin/envoyer-fournisseur/:id",
       const html = `<div style="font-family:sans-serif;">
         <p>Bonjour,</p>
         <p>Vous trouverez ci-joint une demande de garantie pour le produit&nbsp;: <strong>${dossier.produit_concerne || ''}</strong>.</p>
-        <p><strong>RÃ©fÃ©rence produit :</strong> ${dossier.reference_piece || ''}</p>
+        <p><strong>Référence produit :</strong> ${dossier.reference_piece || ''}</p>
         ${adminMsg ? `<p>${adminMsg.replace(/\n/g,'<br>')}</p>` : ''}
         <p style="margin-top:24px;font-weight:bold;">
-          Merci de rÃ©pondre Ã  l'adresse mail : <a href="mailto:${magasinEmail}" style="color:#004080;text-decoration:underline;">${magasinEmail}</a>
+          Merci de répondre à l'adresse mail : <a href="mailto:${magasinEmail}" style="color:#004080;text-decoration:underline;">${magasinEmail}</a>
         </p>
-        <p>Cordialement,<br>L'Ã©quipe Garantie Durand Services</p>
+        <p>Cordialement,<br>L'équipe Garantie Durand Services</p>
       </div>`;
       if (!transporter) {
         console.error("[MAIL] SMTP not configured. Unable to send supplier email.");
@@ -1050,7 +1050,7 @@ router.get("/templates/:name", (req, res) => {
     "Formulaire_SEIM.pdf": path.join(__dirname, "formulaire", "Formulaire_SEIM.pdf"),
   };
   const filePath = allowed[req.params.name];
-  if (!filePath) return res.status(404).send("Formulaire non trouvÃ©");
+  if (!filePath) return res.status(404).send("Formulaire non trouvé");
   res.sendFile(filePath);
 });
 
@@ -1271,7 +1271,7 @@ router.post("/admin/dossier/:id/delete-file", requireGarantieWrite, async (req, 
     const { id } = req.params;
     const { section, url } = req.body || {};
     if (!section || !url) {
-      return res.json({ success: false, message: "ParamÃ¨tres manquants." });
+      return res.json({ success: false, message: "Paramètres manquants." });
     }
     let data = await readDataFTP();
     if (!Array.isArray(data)) data = [];
@@ -1354,14 +1354,14 @@ router.get("/admin/export-excel", requireGarantieRead, async (req, res) => {
       { header: "Date", key: "date" },
       { header: "Magasin", key: "magasin" },
       { header: "Marque du produit", key: "marque_produit" },
-      { header: "Produit concernÃ©", key: "produit_concerne" },
-      { header: "RÃ©fÃ©rence de la piÃ¨ce", key: "reference_piece" },
-      { header: "ProblÃ¨me rencontrÃ©", key: "probleme_rencontre" },
+      { header: "Produit concerné", key: "produit_concerne" },
+      { header: "Référence de la pièce", key: "reference_piece" },
+      { header: "Problème rencontré", key: "probleme_rencontre" },
       { header: "Nom client", key: "nom" },
       { header: "Email", key: "email" },
       { header: "Statut", key: "statut" },
-      { header: "RÃ©ponse", key: "reponse" },
-      { header: "NumÃ©ro d'avoir", key: "numero_avoir" },
+      { header: "Réponse", key: "reponse" },
+      { header: "Numéro d'avoir", key: "numero_avoir" },
     ];
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(Number.isFinite(year) ? ("Demandes " + year) : "Demandes globales");
@@ -1385,7 +1385,7 @@ router.get("/admin/export-excel", requireGarantieRead, async (req, res) => {
     res.end();
   } catch (err) {
     console.error("Erreur /api/admin/export-excel :", err.message || err);
-    if (!res.headersSent) res.status(500).send("Erreur lors de la gÃ©nÃ©ration du fichier Excel.");
+    if (!res.headersSent) res.status(500).send("Erreur lors de la génération du fichier Excel.");
   }
 });
 
