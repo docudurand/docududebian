@@ -42,10 +42,16 @@ const UPLOAD_ALLOWED_EXT = parseCsv(process.env.RAMASSE_UPLOAD_ALLOWED_EXT);
 
 // secret pour signer les liens d'accuse
 const RAMASSE_SECRET =
-  process.env.RAMASSE_SECRET ||
-  process.env.PRESENCES_LEAVES_PASSWORD ||
-  process.env.LEAVES_PASS ||
-  "change-me";
+  String(
+    process.env.RAMASSE_SECRET ||
+    process.env.PRESENCES_LEAVES_PASSWORD ||
+    process.env.LEAVES_PASS ||
+    ""
+  ).trim();
+
+function hasStrongRamasseSecret() {
+  return RAMASSE_SECRET.length >= 12 && RAMASSE_SECRET !== "change-me";
+}
 
 // Dedoublonnage des envois
 const RECENT_POST_RAMASSE = new Map();
@@ -435,6 +441,9 @@ function buildMailHtml({
 
 // Signe un lien d'accuse
 function signAck(params) {
+  if (!hasStrongRamasseSecret()) {
+    throw new Error("ramasse_secret_not_configured");
+  }
   const h = crypto.createHmac("sha256", RAMASSE_SECRET);
   const keys = Object.keys(params).sort();
   const base = keys.map(k => `${k}=${params[k]}`).join("&");
@@ -538,6 +547,9 @@ router.get("/stats", (_req, res) => {
 // API: demande de ramasse (upload + mail + PDF)
 router.post("/", upload.single("file"), async (req, res) => {
   try {
+    if (!hasStrongRamasseSecret()) {
+      return res.status(503).json({ error: "ramasse_secret_not_configured" });
+    }
     if (req.fileValidationError) {
       return res.status(400).json({ error: "file_type_not_allowed" });
     }
@@ -753,6 +765,9 @@ await sendMailWithLog(
 // Page d'accuse
 router.get("/ack", (req, res) => {
   try {
+    if (!hasStrongRamasseSecret()) {
+      return res.status(503).send("Service indisponible.");
+    }
     const { email, fournisseur, magasin, pieces, ts, nonce, sig } = req.query;
     if (!email || !fournisseur || !ts || !nonce || !sig) {
       return res.status(400).send("Lien incomplet");
@@ -815,6 +830,9 @@ router.get("/ack", (req, res) => {
 // Envoi de l'accuse
 router.post("/ack", async (req, res) => {
   try {
+    if (!hasStrongRamasseSecret()) {
+      return res.status(503).send("Service indisponible.");
+    }
     const { email, fournisseur, magasin, pieces, ts, nonce, sig } = req.body;
 
     if (!email || !fournisseur || !ts || !nonce || !sig) {

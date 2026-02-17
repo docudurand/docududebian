@@ -187,6 +187,7 @@ async function processOne(jobFile) {
 
     if (attemptNow >= MAX_ATTEMPTS) {
       await sendFailedAlert({ job, formType, msg });
+      (job?.payload?.cleanupPaths || []).forEach(safeUnlink);
 
       job.failedAt = new Date().toISOString();
       saveJob(jobFile, job);

@@ -10,7 +10,8 @@
     "start:skip-check": "node server.js",
     "dev": "node --watch server.js",
     "check": "node pre-start-check.js",
-    "migrate:json-env-to-ftp": "node scripts/migrate-json-env-to-ftp.js"
+    "migrate:json-env-to-ftp": "node scripts/migrate-json-env-to-ftp.js",
+    "audit:prod": "npm audit --omit=dev"
   },
   "engines": {
     "node": ">=20.0.0"

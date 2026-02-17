@@ -5,6 +5,7 @@ import ftp from "basic-ftp";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import crypto from "node:crypto";
 
 // routeur Express separe
 const router = express.Router();
@@ -106,9 +107,45 @@ async function withFtp(actionLabel, fn, retries = 2) {
 }
 
 // Verifie le token admin (conges)
+function safeEqual(expected, provided) {
+  const a = Buffer.from(String(expected || ""), "utf8");
+  const b = Buffer.from(String(provided || ""), "utf8");
+  if (!a.length || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+function extractAdminToken(req) {
+  const headerToken = req.get("X-Admin-Token");
+  if (headerToken) return String(headerToken).trim();
+
+  const auth = req.get("Authorization");
+  if (auth) {
+    const value = String(auth).trim();
+    if (value.toLowerCase().startsWith("bearer ")) {
+      return value.slice(7).trim();
+    }
+  }
+  return "";
+}
+
 function authOk(req) {
-  const token = String(req.get("X-Admin-Token") || req.query.token || "").trim();
-  return LEAVES_ADMIN_TOKEN && token && token === LEAVES_ADMIN_TOKEN;
+  if (!LEAVES_ADMIN_TOKEN) return false;
+  const token = extractAdminToken(req);
+  return safeEqual(LEAVES_ADMIN_TOKEN, token);
+}
+
+function requireAdminToken(req, res, next) {
+  if (!LEAVES_ADMIN_TOKEN) {
+    return res.status(503).json({ ok: false, error: "admin_token_not_configured" });
+  }
+  if (!authOk(req)) {
+    return res.status(401).json({ ok: false, error: "auth_required" });
+  }
+  return next();
 }
 // Traduit un statut en francais
 function frStatus(s) {
@@ -218,7 +255,7 @@ router.get("/employes", async (req, res) => {
 });
 
 // API: sauvegarde d'une journee
-router.post("/save", express.json({ limit: "2mb" }), async (req, res) => {
+router.post("/save", requireAdminToken, express.json({ limit: "2mb" }), async (req, res) => {
   try {
     const { magasin, date, data } = req.body || {};
     if (!magasin || !/^\d{4}-\d{2}-\d{2}$/.test(String(date || "")))
@@ -240,7 +277,7 @@ router.post("/save", express.json({ limit: "2mb" }), async (req, res) => {
 });
 
 // API: lecture d'une journee
-router.get("/day", async (req, res) => {
+router.get("/day", requireAdminToken, async (req, res) => {
   try {
     const magasin = String(req.query.magasin || "").trim();
     const date = String(req.query.date || "").trim();
@@ -261,7 +298,7 @@ router.get("/day", async (req, res) => {
 });
 
 // API: recupere le mois complet
-router.get("/month-store", async (req, res) => {
+router.get("/month-store", requireAdminToken, async (req, res) => {
   try {
     const month = String(req.query.yyyymm || "").trim();
     const magasin = String(req.query.magasin || "").trim();
@@ -289,8 +326,7 @@ router.get("/month-store", async (req, res) => {
 });
 
 // API admin: liste des conges
-router.get("/leaves", async (req, res) => {
-  if (!authOk(req)) return res.status(401).json({ ok: false, error: "auth_required" });
+router.get("/leaves", requireAdminToken, async (req, res) => {
   try {
     const raw = await withFtp("leaves-get", async (client) =>
       (await tryDownloadJSON(client, LEAVES_FILE)) || []
@@ -304,8 +340,7 @@ router.get("/leaves", async (req, res) => {
 });
 
 // API admin: decision sur un conge
-router.post("/leaves/decision", express.json({ limit: "1mb" }), async (req, res) => {
-  if (!authOk(req)) return res.status(401).json({ ok: false, error: "auth_required" });
+router.post("/leaves/decision", requireAdminToken, express.json({ limit: "1mb" }), async (req, res) => {
   const { id, decision, reason } = req.body || {};
   if (!id || !decision || !/^(accept|reject|cancel)$/i.test(decision))
     return res.status(400).json({ ok: false, error: "invalid_params" });
@@ -410,8 +445,7 @@ router.post("/leaves/decision", express.json({ limit: "1mb" }), async (req, res)
 });
 
 // API admin: marquer un code sur une plage de dates
-router.post("/range-mark", express.json({ limit: "1mb" }), async (req, res) => {
-  if (!authOk(req)) return res.status(401).json({ ok:false, error:"auth_required" });
+router.post("/range-mark", requireAdminToken, express.json({ limit: "1mb" }), async (req, res) => {
 
   const { magasin, nom, prenom, code, dateDu, dateAu, slots } = req.body || {};
   if (!magasin || !nom || !code || !dateDu || !dateAu)

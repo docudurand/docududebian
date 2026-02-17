@@ -287,7 +287,6 @@
 <script>
   const TOKEN_KEY = "MAILLOG_ADMIN_TOKEN";
   const REMEMBER_KEY = "MAILLOG_REMEMBER";
-  const URL_TOKEN = new URLSearchParams(window.location.search).get("token") || "";
 
   const FIXED_LIMIT = 500;
 
@@ -302,27 +301,37 @@
     }[c]));
   }
 
-    function saveTokenIfNeeded(){
+  function saveTokenIfNeeded(){
     const remember = $("remember").checked;
     try {
-      localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
+      sessionStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
       if (!remember) {
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
         return;
       }
-      const value = (URL_TOKEN || $("token").value || "").trim();
-      localStorage.setItem(TOKEN_KEY, value);
+      const value = ($("token").value || "").trim();
+      sessionStorage.setItem(TOKEN_KEY, value);
     } catch {
     }
   }
   function restoreToken(){
-    const remember = localStorage.getItem(REMEMBER_KEY) === "1";
+    const remember = sessionStorage.getItem(REMEMBER_KEY) === "1";
     $("remember").checked = remember;
-    if (remember) $("token").value = localStorage.getItem(TOKEN_KEY) || "";
-    if (URL_TOKEN) {
-      $("token").value = URL_TOKEN;
-      if (remember) localStorage.setItem(TOKEN_KEY, URL_TOKEN);
-    }
+    if (remember) $("token").value = sessionStorage.getItem(TOKEN_KEY) || "";
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REMEMBER_KEY);
+    } catch {}
+  }
+  function clearSavedToken(){
+    try {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(REMEMBER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REMEMBER_KEY);
+    } catch {}
+    $("token").value = "";
+    $("remember").checked = false;
   }
   window.clearSavedToken = clearSavedToken;
 
@@ -340,15 +349,13 @@
   function norm(s){ return String(s||"").toLowerCase(); }
 
   async function apiListLogs(){
-    const token = (URL_TOKEN || $("token").value || "").trim();
+    const token = ($("token").value || "").trim();
     const q = encodeURIComponent(($("q").value || "").trim());
     const limit = encodeURIComponent(String(FIXED_LIMIT));
-
-    const url = URL_TOKEN
-      ? `/api/mail-logs?limit=${limit}&q=${q}&token=${encodeURIComponent(URL_TOKEN)}`
-      : `/api/mail-logs?limit=${limit}&q=${q}`;
+    const url = `/api/mail-logs?limit=${limit}&q=${q}`;
 
     const res = await fetch(url, {
+      credentials: "same-origin",
       headers: token ? { "x-admin-token": token } : {}
     });
 
@@ -536,6 +543,3 @@ const pillTxt =
 </script>
 </body>
 </html>
-
-
-

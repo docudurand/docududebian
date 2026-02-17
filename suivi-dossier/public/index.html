@@ -274,10 +274,6 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
       placeholder="Mot de passe"
       autocomplete="current-password"
     />
-    <label class="rememberLabel">
-      <input type="checkbox" id="rememberPwd" checked />
-      Se souvenir du mot de passe sur cet appareil
-    </label>
     <button type="button" id="loginBtn">Se connecter</button>
     <div class="error" id="loginError"></div>
   </div>
@@ -366,17 +362,7 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
   </div>
 </div>
 
-<script src="/suivi-dossier/config.js"></script>
-
 <script>
-// Charger la configuration depuis /suivi-dossier/config.js
-// Le fichier définit window.__ATELIER_CFG avec les mots de passe
-const atelierCfg = window.__ATELIER_CFG || window.__SUIVI_CFG || {};
-const PASS_STE     = atelierCfg.ATELIER_SUIVI_PASS_STE     || "";
-const PASS_BG      = atelierCfg.ATELIER_SUIVI_PASS_BG      || "";
-const PASS_LIMITED = atelierCfg.ATELIER_SUIVI_PASS_LIMITED || "";
-const PASS_CHASSE  = atelierCfg.ATELIER_SUIVI_PASS_CHASSE  || "";
-const PASS_ADMIN  = atelierCfg.ATELIER_SUIVI_PASS_ADMIN  || "";
 
 let LIMITED_VIEW = false;
 let VIEW_MODE    = "ALL";
@@ -385,6 +371,14 @@ const API_BASE =
   (location.hostname.includes("wixsite.com") || location.hostname.endsWith(".wix.com"))
     ? ""
     : location.origin.replace(/\/$/, "");
+
+function apiFetch(path, options = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    credentials: "same-origin",
+    cache: "no-store",
+    ...options
+  });
+}
 
 const $tbody = document.querySelector("#tab tbody");
 const $filter = document.getElementById("filterMag");
@@ -405,6 +399,13 @@ function setTableLoading(msg){
   $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#334155">
     <span class="spinner" aria-hidden="true" style="margin-right:8px"></span>${msg||"Chargement…"}
   </td></tr>`;
+}
+
+function showLoginOverlay(message = "Session expirée. Merci de vous reconnecter.") {
+  const overlay = document.getElementById("loginOverlay");
+  const errBox = document.getElementById("loginError");
+  if (overlay) overlay.style.display = "flex";
+  if (errBox) errBox.textContent = message;
 }
 
 const LABELS = ["Demande envoyé","Pièce reçu","Travaux en cours","Renvoyé"];
@@ -552,7 +553,8 @@ function getMaxNo(list){
 }
 
 async function fetchCasesNormalized(){
-  const r = await fetch(`${API_BASE}/atelier/api/cases`, { cache: "no-store" });
+  const r = await apiFetch("/atelier/api/cases");
+  if (r.status === 401) throw new Error("AUTH_REQUIRED");
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const json = await r.json();
   const data = (json && json.data) || [];
@@ -605,7 +607,12 @@ POLL_TIMER = setInterval(async ()=>{
         setTimeout(()=>{ if($legend) $legend.textContent = old; }, 3500);
       }
     } catch(e){
-      console.warn("[SUIVI] Polling error:", e);
+      if (String(e?.message || "").includes("AUTH_REQUIRED")) {
+        stopPolling();
+        showLoginOverlay();
+      } else {
+        console.warn("[SUIVI] Polling error:", e);
+      }
     } finally {
       POLL_IN_FLIGHT = false;
     }
@@ -760,12 +767,17 @@ function draw(){
           saveBtn.disabled = true; statusSel.disabled = true; etaSel.disabled = true;
           saveBtn.innerHTML = `<span class="spinner" aria-hidden="true"></span>`;
 
-          const resp = await fetch(`${API_BASE}/atelier/api/cases/${encodeURIComponent(r.no)}/status`, {
+          const resp = await apiFetch(`/atelier/api/cases/${encodeURIComponent(r.no)}/status`, {
             method:"POST",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ status, estimation })
           });
           if(!resp.ok){
+            if (resp.status === 401) {
+              stopPolling();
+              showLoginOverlay();
+              return;
+            }
             alert(`Erreur de mise à jour (${resp.status})`);
             return;
           }
@@ -944,13 +956,19 @@ function load(){
   }
 
 (async ()=>{
+  let authError = false;
   try{
     const fresh = await fetchCasesNormalized();
     rows = fresh;
     LAST_MAX_NO = getMaxNo(fresh);
   } catch(e){
-    console.error(e);
-    $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#b91c1c">Erreur de chargement.</td></tr>`;
+    if (String(e?.message || "").includes("AUTH_REQUIRED")) {
+      authError = true;
+      showLoginOverlay();
+    } else {
+      console.error(e);
+      $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#b91c1c">Erreur de chargement.</td></tr>`;
+    }
   } finally {
     IS_LOADING = false;
 
@@ -967,8 +985,10 @@ function load(){
 
     draw();
 
-    startPolling(45000);
-	window.addEventListener("beforeunload", stopPolling);
+    if (!authError) {
+      startPolling(45000);
+      window.addEventListener("beforeunload", stopPolling);
+    }
   }
 })();
 }
@@ -984,116 +1004,63 @@ if ($filterService) {
   const input   = document.getElementById("loginPassword");
   const btn     = document.getElementById("loginBtn");
   const errBox  = document.getElementById("loginError");
-  const remember = document.getElementById("rememberPwd");
-
-  const STORAGE_KEY = "atelier_suivi_pwd";
-
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      input.value = saved;
-      if (remember) remember.checked = true;
-    }
-  } catch (e) {
-    console.warn("localStorage indisponible", e);
-  }
+  const rememberLabel = document.querySelector(".rememberLabel");
+  if (rememberLabel) rememberLabel.style.display = "none";
 
   function startApp(){
+    if (errBox) errBox.textContent = "";
     if (overlay) overlay.style.display = "none";
     load();
   }
 
-  function handleLogin(){
+  function applySession(payload){
+    LIMITED_VIEW = Boolean(payload?.isLimited);
+    VIEW_MODE = String(payload?.viewMode || payload?.role || "ALL").toUpperCase();
+    if (!VIEW_MODE) VIEW_MODE = "ALL";
+  }
+
+  async function restoreSession(){
+    try {
+      const resp = await apiFetch("/suivi-dossier/api/session");
+      if (!resp.ok) return false;
+      const payload = await resp.json().catch(() => ({}));
+      if (!payload || !payload.success) return false;
+      applySession(payload);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleLogin(){
     const v = (input.value || "").trim();
-
-    if (!PASS_STE && !PASS_BG && !PASS_LIMITED && !PASS_CHASSE && !PASS_ADMIN){
-      LIMITED_VIEW = false;
-      VIEW_MODE = "ALL";
-      startApp();
+    if (!v) {
+      if (errBox) errBox.textContent = "Mot de passe requis.";
+      if (input) input.focus();
       return;
     }
 
-    if (PASS_STE && v === PASS_STE){
-      LIMITED_VIEW = false;
-      VIEW_MODE = "STE";
-
-      try {
-        if (remember && remember.checked) {
-          localStorage.setItem(STORAGE_KEY, v);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (e) {}
-
+    if (errBox) errBox.textContent = "";
+    if (btn) btn.disabled = true;
+    try {
+      const resp = await apiFetch("/suivi-dossier/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: v })
+      });
+      const payload = await resp.json().catch(() => ({}));
+      if (!resp.ok || !payload?.success) {
+        if (errBox) errBox.textContent = payload?.message || `Erreur (${resp.status})`;
+        return;
+      }
+      applySession(payload);
+      if (input) input.value = "";
       startApp();
-      return;
+    } catch {
+      if (errBox) errBox.textContent = "Erreur réseau.";
+    } finally {
+      if (btn) btn.disabled = false;
     }
-
-    if (PASS_BG && v === PASS_BG){
-      LIMITED_VIEW = false;
-      VIEW_MODE = "BG";
-
-      try {
-        if (remember && remember.checked) {
-          localStorage.setItem(STORAGE_KEY, v);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (e) {}
-
-      startApp();
-      return;
-    }
-
-    if (PASS_CHASSE && v === PASS_CHASSE){
-      LIMITED_VIEW = false;
-      VIEW_MODE = "CHASSE";
-
-      try {
-        if (remember && remember.checked) {
-          localStorage.setItem(STORAGE_KEY, v);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (e) {}
-
-      startApp();
-      return;
-    }
-
-    if (PASS_LIMITED && v === PASS_LIMITED){
-      LIMITED_VIEW = true;
-      VIEW_MODE = "ALL";
-
-      try {
-        if (remember && remember.checked) {
-          localStorage.setItem(STORAGE_KEY, v);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (e) {}
-
-      startApp();
-      return;
-    }
-        if (PASS_ADMIN && v === PASS_ADMIN){
-      LIMITED_VIEW = false;
-      VIEW_MODE = "ALL";
-
-      try {
-        if (remember && remember.checked) {
-          localStorage.setItem(STORAGE_KEY, v);
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (e) {}
-
-      startApp();
-      return;
-    }
-
-
-    errBox.textContent = "Mot de passe incorrect.";
   }
 
   btn.addEventListener("click", handleLogin);
@@ -1101,10 +1068,14 @@ if ($filterService) {
     if (e.key === "Enter") handleLogin();
   });
 
-  if (!PASS_STE && !PASS_BG && !PASS_LIMITED && !PASS_CHASSE){
-    overlay.style.display = "none";
-    startApp();
-  }
+  (async () => {
+    const ok = await restoreSession();
+    if (ok) {
+      startApp();
+    } else if (overlay) {
+      overlay.style.display = "flex";
+    }
+  })();
 })();
 </script>
 </body>

@@ -1689,10 +1689,7 @@ function supprimerDocumentLocal(evt) {
       if (!confirm("Supprimer définitivement ce dossier ?")) return;
       const id = dossierSelectionne.id;
       fetch("/api/admin/dossier/" + encodeURIComponent(id), {
-        method: "DELETE",
-        headers: {
-          "x-superadmin": isSuperAdmin ? "1" : ""
-        }
+        method: "DELETE"
       })
         .then(r => r.json())
         .then(json => {

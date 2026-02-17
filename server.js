@@ -20,6 +20,7 @@ import ExcelJS from "exceljs";
 import QRCode from "qrcode";
 import session from "express-session";
 import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import mailLogsRouter from "./routes/mail-logs.js";
 import adminEditorRouter from "./routes/admin-json-editor.js";
 import * as ftpStorage from "./ftpStorage.js";
@@ -49,20 +50,13 @@ process.on("uncaughtException", (err) => {
   console.error("[FATAL] uncaughtException:", err);
 });
 
-// Helper pour lire un booleen depuis une variable d'environnement
-function parseBool(value, fallback = false) {
-  if (value == null) return fallback;
-  const v = String(value).trim().toLowerCase();
-  if (v === "") return fallback;
-  return v === "1" || v === "true" || v === "yes";
-}
-
 // Chemins utilitaires pour servir des fichiers statiques
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 // Instance Express principale
 const app = express();
+app.disable("x-powered-by");
 
 app.set("trust proxy", 1);
 
@@ -104,7 +98,7 @@ const corsOptions = {
     return cb(null, false);
   },
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token", "X-Requested-With", "X-Request-Id", "X-Superadmin"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Token", "X-Requested-With", "X-Request-Id"],
   optionsSuccessStatus: 204,
 };
 
@@ -115,8 +109,11 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 const SESSION_SECRET =
   String(process.env.SESSION_SECRET || "").trim() ||
-  String(process.env.ADMIN_SECRET_KEY || "").trim() ||
-  "change-me";
+  String(process.env.ADMIN_SECRET_KEY || "").trim();
+
+if (!SESSION_SECRET || SESSION_SECRET === "change-me") {
+  throw new Error("Missing strong SESSION_SECRET (or ADMIN_SECRET_KEY)");
+}
 
 app.use(
   session({
@@ -230,9 +227,40 @@ async function callNavetteGAS(action, params = {}) {
 }
 
 // ---- API LIVRAISON (import/scan/livraison) ----
+const NAVETTE_ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+]);
+const NAVETTE_ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic"]);
+const NAVETTE_MIME_TO_EXT = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/heic": ".heic",
+};
+
+function isAllowedNavettePhoto(file) {
+  const mimeType = String(file?.mimetype || "").toLowerCase();
+  const ext = String(path.extname(file?.originalname || "") || "").toLowerCase();
+  return NAVETTE_ALLOWED_MIME.has(mimeType) && NAVETTE_ALLOWED_EXT.has(ext);
+}
+
+function getSafeNavettePhotoExt(file) {
+  const ext = String(path.extname(file?.originalname || "") || "").toLowerCase();
+  if (NAVETTE_ALLOWED_EXT.has(ext)) return ext;
+  return NAVETTE_MIME_TO_EXT[String(file?.mimetype || "").toLowerCase()] || ".jpg";
+}
+
 const navetteUpload = multer({
   dest: os.tmpdir(),
-  limits: { fileSize: 12 * 1024 * 1024 }, // 12 Mo
+  limits: { fileSize: 12 * 1024 * 1024, files: 1 }, // 12 Mo
+  fileFilter: (req, file, cb) => {
+    if (isAllowedNavettePhoto(file)) return cb(null, true);
+    req.fileValidationError = "photo_type_not_allowed";
+    return cb(null, false);
+  },
 });
 
 app.post("/api/navette/import", async (req, res) => {
@@ -621,8 +649,16 @@ setInterval(() => {
 // Reçoit un multipart/form-data : photo + champs (tourneeId, magasin, livreurId, tournee, codeTournee, bons JSON)
 app.post("/api/navette/proof-photo", navetteUpload.single("photo"), async (req, res) => {
   try {
+    if (req.fileValidationError) {
+      return res.status(400).json({ success: false, error: "photo_type_not_allowed" });
+    }
     const f = req.file;
     if (!f) return res.status(400).json({ success:false, error:"photo_manquante" });
+
+    if (!isAllowedNavettePhoto(f)) {
+      try { fs.unlinkSync(f.path); } catch {}
+      return res.status(400).json({ success: false, error: "photo_type_not_allowed" });
+    }
 
     const tourneeId   = String(req.body?.tourneeId || "").trim();
     const magasin     = String(req.body?.magasin || "").trim().toUpperCase();
@@ -640,7 +676,7 @@ app.post("/api/navette/proof-photo", navetteUpload.single("photo"), async (req, 
       return res.status(400).json({ success:false, error:"bad_request", details:"magasin/livreurId/bons requis" });
     }
 
-    const ext = (path.extname(f.originalname || "") || "").toLowerCase() || ".jpg";
+    const ext = getSafeNavettePhotoExt(f);
     const safe = (s) => String(s || "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 40);
 
     const now = new Date();
@@ -919,8 +955,8 @@ app.get("/api/navette/magasins", async (req, res) => {
     res.status(500).json({ success: false, error: String(e?.message || e) });
   }
 });
-// option pour accepter un token admin en query string
-const ADMIN_TOKEN_ALLOW_QUERY = parseBool(process.env.ADMIN_TOKEN_ALLOW_QUERY, true);
+const ADMIN_TOKEN = String(process.env.ADMIN_TOKEN || "").trim();
+const PRESENCES_ADMIN_TOKEN = String(process.env.PRESENCES_LEAVES_PASSWORD || "").trim();
 
 // Recupere le token admin
 function extractAdminToken(req) {
@@ -935,31 +971,93 @@ function extractAdminToken(req) {
     }
   }
 
-  const queryToken = req.query?.token;
-  if (ADMIN_TOKEN_ALLOW_QUERY) {
-    if (Array.isArray(queryToken)) return { token: String(queryToken[0] || "").trim(), source: "query" };
-    if (queryToken != null) return { token: String(queryToken).trim(), source: "query" };
-  }
-
   return { token: "", source: "none" };
 }
+
+function safeTokenEqual(expected, provided) {
+  const a = Buffer.from(String(expected || ""), "utf8");
+  const b = Buffer.from(String(provided || ""), "utf8");
+  if (!a.length || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+function isAdminTokenValid(token) {
+  return safeTokenEqual(ADMIN_TOKEN, String(token || "").trim());
+}
+
+function requireBackofficeAuth(req, res, next) {
+  if (req.session?.siteAuthed === true) return next();
+
+  const { token } = extractAdminToken(req);
+  if (isAdminTokenValid(token)) {
+    return next();
+  }
+
+  return res.status(401).json({ error: "auth_required" });
+}
+
+function requirePresencesAdminToken(req, res, next) {
+  if (!PRESENCES_ADMIN_TOKEN) {
+    return res.status(503).json({ error: "presences_admin_token_not_configured" });
+  }
+  const token = String(req.get("X-Admin-Token") || "").trim();
+  if (!safeTokenEqual(PRESENCES_ADMIN_TOKEN, token)) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  return next();
+}
+
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: Number(process.env.LOGIN_RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too_many_attempts" },
+});
 
 
 // Fichiers statiques (public/)
 app.use(express.static(path.join(__dirname, "public"), { extensions: ["html", "htm"], index: false }));
 
 // Login simple protege par un mot de passe (site entier)
-app.post("/api/site/login", (req, res) => {
+app.post("/api/site/login", loginLimiter, (req, res) => {
   try {
-    const pwd = (req.body && req.body.password) ? String(req.body.password) : "";
-    const expected = String(process.env.SITE_PASSWORD || "");
-    if (pwd && expected && pwd === expected) {
-      return res.sendStatus(200);
+    const pwd = String(req.body?.password || "");
+    const expected = String(process.env.SITE_PASSWORD || "").trim();
+    if (!expected) {
+      return res.status(503).json({ error: "site_password_not_configured" });
+    }
+    if (pwd && pwd === expected) {
+      return req.session.regenerate((regenErr) => {
+        if (regenErr) return res.sendStatus(500);
+        req.session.siteAuthed = true;
+        req.session.siteAuthedAt = Date.now();
+        return req.session.save((saveErr) => {
+          if (saveErr) return res.sendStatus(500);
+          return res.sendStatus(200);
+        });
+      });
     }
     return res.sendStatus(401);
   } catch {
     return res.sendStatus(500);
   }
+});
+
+app.post("/api/site/logout", (req, res) => {
+  req.session.destroy(() => res.sendStatus(204));
+});
+
+app.get("/api/site/session", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (req.session?.siteAuthed === true) {
+    return res.status(200).json({ authenticated: true });
+  }
+  return res.status(401).json({ authenticated: false });
 });
 
 // Formate une date au format francais (avec ou sans heure)
@@ -1043,15 +1141,10 @@ async function fetchMonthStoreJSON(req, ym, magasin){
 }
 
 // Export Excel des presences du mois
-app.get('/presence/export-month', async (req, res) => {
+app.get('/presence/export-month', requirePresencesAdminToken, async (req, res) => {
   try {
     const ym = String(req.query.yyyymm || '').trim();
     if (!/^\d{4}-\d{2}$/.test(ym)) return res.status(400).json({ error: 'Paramètre yyyymm invalide' });
-
-    const ADMIN_PASS = process.env.PRESENCES_LEAVES_PASSWORD;
-    if (ADMIN_PASS && req.get('X-Admin-Token') !== ADMIN_PASS) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Présences DSG';
@@ -1269,7 +1362,7 @@ async function appendJSONL(client, remotePath, obj){
   }
 }
 
-app.post("/presence/adjust-conges", async (req, res) => {
+app.post("/presence/adjust-conges", requirePresencesAdminToken, async (req, res) => {
   try{
     const { magasin, date, entries, adjustments } = req.body || {};
     const list = Array.isArray(entries) ? entries : (Array.isArray(adjustments) ? adjustments : null);
@@ -1381,7 +1474,6 @@ function makeTeleventeProxy(appsScriptUrl) {
         await new Promise(t => setTimeout(t, 400));
         r = await tryOnce();
       }
-      res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cache-Control", "no-store");
       res.status(200).json(r.data);
     } catch (e) {
@@ -1393,15 +1485,15 @@ function makeTeleventeProxy(appsScriptUrl) {
   };
 }
 
-app.get("/api/sheets/televente-lub",   makeTeleventeProxy(APPS_SCRIPT_URL_LUB));
-app.get("/api/sheets/televente-bosch", makeTeleventeProxy(APPS_SCRIPT_URL_BOSCH));
+app.get("/api/sheets/televente-lub", requireBackofficeAuth, makeTeleventeProxy(APPS_SCRIPT_URL_LUB));
+app.get("/api/sheets/televente-bosch", requireBackofficeAuth, makeTeleventeProxy(APPS_SCRIPT_URL_BOSCH));
 
 
 app.get("/stats/counters", async (_req, res) => {
   try { const data = await stats.getCounters(); res.json({ ok: true, data }); }
   catch (e) { console.error("Erreur /stats/counters:", e); res.status(500).json({ ok: false, error: "Erreur de lecture des compteurs" }); }
 });
-app.get("/admin/compteurs", async (_req, res) => {
+app.get("/admin/compteurs", requireBackofficeAuth, async (_req, res) => {
   try { const data = await stats.getCounters(); res.json(data); }
   catch (e) { console.error("Erreur /admin/compteurs:", e); res.status(500).json({ error: "Erreur de lecture des compteurs" }); }
 });
@@ -1942,6 +2034,8 @@ app.get("/conges/sign/:id", async (req, res) => {
   const prefillName = "";
 
   res.setHeader("Content-Type","text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Referrer-Policy", "no-referrer");
   res.end(`
 <!doctype html><meta charset="utf-8"/>
 <title>Signature – Validation congés</title>
@@ -2133,7 +2227,7 @@ ts: new Date().toISOString(),
 app.get("/", (_req, res) => res.status(200).send("📝 Mes Formulaires – service opérationnel"));
 
 // Routes des differents formulaires
-app.use("/formtelevente", formtelevente);
+app.use("/formtelevente", requireBackofficeAuth, formtelevente);
 app.use("/formulaire-piece", formulairePiece);
 app.use("/formulaire-piecepl", formulairePiecePL);
 app.use("/formulaire-pneu", formulairePneu);
@@ -2143,7 +2237,7 @@ const pretPublic = path.join(__dirname, "pretvehiculed", "public");
 app.use("/pret", express.static(pretPublic, { extensions: ["html", "htm"], index: false }));
 app.get("/pret/fiche", (_req, res) => res.sendFile(path.join(pretPublic, "fiche-pret.html")));
 app.get("/pret/admin", (_req, res) => res.sendFile(path.join(pretPublic, "admin-parc.html")));
-app.use("/pret/api", loansRouter);
+app.use("/pret/api", requireBackofficeAuth, loansRouter);
 
 function parseEnvJSON(raw, fallback) {
   let s = String(raw ?? "").trim();
