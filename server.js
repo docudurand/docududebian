@@ -115,20 +115,20 @@ if (!SESSION_SECRET || SESSION_SECRET === "change-me") {
   throw new Error("Missing strong SESSION_SECRET (or ADMIN_SECRET_KEY)");
 }
 
-app.set("trust proxy", 1);
-
-app.use(session({
-  name: "dd_admin_session",
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  rolling: true,
-  cookie: {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: "auto",
-  }
-}));
+app.use(
+  session({
+    name: "dd_admin_session",
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: "auto",
+      maxAge: 6 * 60 * 60 * 1000,
+    },
+  })
+);
 
 // Log uniquement les erreurs 5xx avec temps de traitement
 app.use((req, res, next) => {
