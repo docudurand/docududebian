@@ -1,84 +1,10 @@
-//pages publiques + login.html
+// pages publiques + login.html (version session serveur uniquement)
 
-const AUTH_KEY = "dd_auth_ok_v1";
-
-// Nom d'utilisateur fixe (pour l'autofill)
-const SITE_USERNAME = "durand";
-
-// verification mot de passe
 const LOGIN_ENDPOINT = "/api/site/login";
 
 // Prefix pour servir le site depuis un sous-chemin
 function getPrefix() {
   return (window.__SITE_PREFIX__ !== undefined) ? String(window.__SITE_PREFIX__) : "";
-}
-
-// Est-ce que la session est deja validee ?
-function isAuthed() {
-  return sessionStorage.getItem(AUTH_KEY) === "1";
-}
-
-// Marque la session comme validee
-function setAuthed() {
-  sessionStorage.setItem(AUTH_KEY, "1");
-}
-
-// Supprime la session
-function clearAuthed() {
-  sessionStorage.removeItem(AUTH_KEY);
-}
-
-// Redirige vers login si pas connecte
-function requireAuth() {
-  if (!isAuthed()) {
-    const prefix = getPrefix();
-    const dest = window.location.pathname + window.location.search + window.location.hash;
-    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
-    return;
-  }
-
-  const prefix = getPrefix();
-  const dest = window.location.pathname + window.location.search + window.location.hash;
-  fetch("/api/site/session", {
-    credentials: "same-origin",
-    cache: "no-store"
-  }).then((res) => {
-    if (res.ok) return;
-    clearAuthed();
-    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
-  }).catch(() => {
-    clearAuthed();
-    window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
-  });
-}
-
-// Verifie le mot de passe via l'API
-function loginWith(pwd) {
-  return fetch(LOGIN_ENDPOINT, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: String(pwd || "") })
-  })
-    .then(res => {
-      if (res.ok) {
-        setAuthed();
-        return true;
-      }
-      return false;
-    })
-    .catch(() => false);
-}
-
-// Deconnexion simple
-function logout() {
-  clearAuthed();
-  fetch("/api/site/logout", {
-    method: "POST",
-    credentials: "same-origin"
-  }).catch(() => {}).finally(() => {
-    window.location.href = getPrefix() + "login.html";
-  });
 }
 
 // Lit le param redirect en securise
@@ -104,6 +30,48 @@ function goAfterLogin() {
   }
 }
 
+// Redirige vers login si pas connecte (session serveur)
+async function requireAuth() {
+  const prefix = getPrefix();
+  const dest = window.location.pathname + window.location.search + window.location.hash;
+
+  try {
+    const res = await fetch("/api/site/session", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (res.ok) return; // session OK => on reste sur la page
+  } catch {}
+
+  // pas de session => redirect login
+  window.location.replace(prefix + "login.html?redirect=" + encodeURIComponent(dest));
+}
+
+// Verifie le mot de passe via l'API
+async function loginWith(pwd) {
+  try {
+    const res = await fetch(LOGIN_ENDPOINT, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: String(pwd || "") }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Deconnexion simple
+function logout() {
+  fetch("/api/site/logout", {
+    method: "POST",
+    credentials: "same-origin",
+  }).catch(() => {}).finally(() => {
+    window.location.href = getPrefix() + "login.html";
+  });
+}
+
 // Branche un formulaire de login
 function wireLoginForm(options = {}) {
   const {
@@ -111,7 +79,7 @@ function wireLoginForm(options = {}) {
     usernameId = "username",
     passwordId = "password",
     errorId = "loginError",
-    forceUsername = SITE_USERNAME,
+    forceUsername = "durand",
   } = options;
 
   const form = document.getElementById(formId);
@@ -153,6 +121,7 @@ function wireLoginForm(options = {}) {
 
     const pwd = pass ? String(pass.value || "") : "";
     const ok = await loginWith(pwd);
+
     if (ok) {
       goAfterLogin();
     } else {
