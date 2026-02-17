@@ -1,4 +1,9 @@
 // journalisation des emails via Google Apps Script
+//
+// IMPORTANT (anti-doublons):
+// - L'envoi SMTP et le log Google Apps Script sont decouples.
+// - Si le mail est parti mais que le log echoue (timeout / aborted / Apps Script HS),
+//   on NE DOIT PAS re-tenter l'envoi, sinon les destinataires recoivent des doublons.
 
 const GS_URL = process.env.GS_MAIL_LOG_URL || "";
 const TIMEOUT = Number(process.env.GS_MAIL_LOG_TIMEOUT_MS || 15000);
@@ -56,6 +61,7 @@ export async function getMailLogs({ limit = 200, q = "" } = {}) {
 }
 
 // Envoie un mail ET cree un log (success/fail)
+// IMPORTANT: si le mail est parti mais que le log echoue, on NE RETENTE PAS l'envoi.
 export async function sendMailWithLog(transporter, mailOptions, formType, meta = {}, opts = {}) {
   const { logFailed = true } = opts || {};
 
@@ -70,17 +76,25 @@ export async function sendMailWithLog(transporter, mailOptions, formType, meta =
     meta,
   };
 
+  // 1) Envoi SMTP
+  let info;
   try {
-    const info = await transporter.sendMail(mailOptions);
-    await addMailLog({ ...base, status: "sent", messageId: info?.messageId || "" });
-    return info;
+    info = await transporter.sendMail(mailOptions);
   } catch (err) {
+    // SMTP KO -> on peut logger "failed" (best effort), puis on throw (normal)
     const msg = String(err?.message || err);
     if (logFailed) {
-      try {
-        await addMailLog({ ...base, status: "failed", error: msg });
-      } catch {}
+      try { await addMailLog({ ...base, status: "failed", error: msg }); } catch {}
     }
     throw err;
   }
+
+  // 2) Log "sent" (best effort) — mais surtout ne jamais faire echouer l'envoi
+  try {
+    await addMailLog({ ...base, status: "sent", messageId: info?.messageId || "" });
+  } catch (e) {
+    console.warn("[MAIL_LOG] log failed but email was sent:", String(e?.message || e));
+  }
+
+  return info;
 }
