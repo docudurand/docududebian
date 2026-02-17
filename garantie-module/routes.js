@@ -877,15 +877,15 @@ router.post("/admin/dossier/:id",
         const attachments = await fetchFilesFromFTP(dossier.reponseFiles);
         const html = `<div style="font-family:sans-serif;">
           Bonjour,<br>
-          Votre dossier de garantie a Ã©tÃ© mis Ã  jour.<br>
+          Votre dossier de garantie a été mis à jour.<br>
           Produit : ${dossier.produit_concerne || ""}<br>
           Date : ${(new Date()).toLocaleDateString("fr-FR")}<br>
           <ul>
             ${changes.includes("statut") ? `<li><b>Nouveau statut :</b> ${dossier.statut}</li>` : ""}
-            ${changes.includes("rÃ©ponse") ? `<li><b>RÃ©ponse :</b> ${dossier.reponse || ""}</li>` : ""}
-            ${changes.includes("piÃ¨ce jointe") ? `<li><b>Documents ajoutÃ©s Ã  votre dossier.</b></li>` : ""}
+            ${changes.includes("rÃ©ponse") ? `<li><b>Réponse :</b> ${dossier.reponse || ""}</li>` : ""}
+            ${changes.includes("piÃ¨ce jointe") ? `<li><b>Documents ajoutés à votre dossier.</b></li>` : ""}
           </ul>
-          <br><br>L'Ã©quipe Garantie Durand<br><br>
+          <br><br>L'équipe Garantie Durand<br><br>
         </div>`;
         if (!transporter) {
           console.error("[MAIL] SMTP not configured. Unable to send dossier update.");
@@ -893,7 +893,7 @@ router.post("/admin/dossier/:id",
           await transporter.sendMail({
             from: `Garantie Durand Services <${fromEmail}>`,
             to: dossier.email,
-            subject: `Mise Ã  jour dossier garantie Durand Services`,
+            subject: `Mise à jour dossier garantie Durand Services`,
             html,
             attachments: attachments.map(f=>({ filename: f.filename, path: f.path }))
           });
