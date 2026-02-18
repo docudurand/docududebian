@@ -43,32 +43,6 @@ function requireCsrf(req, res, next) {
   return next();
 }
 
-
-// --- EXTRA JSON ENTRIES (added for Kilométrage params.json) ---
-const EXTRA_JSON_ENTRIES = [
-  {
-    key: "kilometrage-params",
-    label: "Paramètres Kilométrage",
-    page: "kilometrage",
-    filename: "service/kilometrage/params.json",
-    schema: "kilometrage_params",
-  },
-];
-
-function resolveJsonEntry(key) {
-  const k = String(key || "").trim();
-  // try registry from jsonRegistry.js first
-  const entry = getByKey(k);
-  if (entry) return entry;
-  // then extras
-  return EXTRA_JSON_ENTRIES.find(e => e.key === k) || null;
-}
-
-function getRegistryWithExtras() {
-  // avoid mutating imported registry; just extend for UI
-  return Array.isArray(registry) ? [...registry, ...EXTRA_JSON_ENTRIES] : [...EXTRA_JSON_ENTRIES];
-}
-// --- end EXTRA JSON ENTRIES ---
 function htmlPage(title, body) {
   return `<!doctype html>
 <html lang="fr">
@@ -108,7 +82,18 @@ td{vertical-align:top;padding:8px}
 	input,select,textarea{box-sizing:border-box}
 td{overflow:hidden}
 th:last-child, td:last-child{width:140px; white-space:nowrap}
-  </style>
+  
+    .stickyBar{
+      position: sticky;
+      bottom: 0;
+      margin-top: 16px;
+      padding-top: 12px;
+      background: white;
+      display:flex;
+      justify-content:flex-end;
+      border-top: 1px solid #e5e7eb;
+    }
+</style>
 </head>
 <body>
   <div class="wrap">
@@ -118,8 +103,8 @@ th:last-child, td:last-child{width:140px; white-space:nowrap}
 </html>`;
 }
 
-function editorPage(baseUrl, csrfToken) {
-  const registryJson = JSON.stringify(getRegistryWithExtras());
+function editorPage(baseUrl, csrfToken, editorRegistry) {
+  const registryJson = JSON.stringify(editorRegistry);
   return htmlPage("Editeur JSON", `
   <div class="card">
     <h1>Editeur JSON</h1>
@@ -137,13 +122,13 @@ function editorPage(baseUrl, csrfToken) {
     <div class="row" style="margin-top:10px">
       <div class="muted">Dernière modification: <span id="lastMod">—</span></div>
     </div>
-    <div class="row" style="margin-top:14px; justify-content:flex-end">
-      <button class="btn" id="btnSave" type="button">Enregistrer</button>
-    </div>
     <form method="POST" action="${baseUrl}/logout" style="margin-top:12px">
       <input type="hidden" name="csrfToken" value="${csrfToken}"/>
       <button class="btn danger" type="submit">Logout</button>
     </form>
+    <div class="stickyBar">
+      <button class="btn" id="btnSave" type="button">Enregistrer</button>
+    </div>
     <div class="msg" id="msg"></div>
   </div>
   <script>
@@ -166,17 +151,17 @@ function editorPage(baseUrl, csrfToken) {
     });
 
     const schemas = {
-
       kilometrage_params: { type: "table", columns: [
         { key: "agence", label: "Agence" },
-        { key: "codeAgence", label: "Code Agence" },
+        { key: "codeAgence", label: "Code agence" },
         { key: "tournee", label: "Tournée" },
-        { key: "codeTournee", label: "Code Tournée" },
-        { key: "transporteur", label: "Transporteur / Livreur" },
-        { key: "codeTransporteur", label: "Code Transporteur" },
+        { key: "codeTournee", label: "Code tournée" },
+        { key: "transporteur", label: "Transporteur" },
+        { key: "codeTransporteur", label: "Code transporteur" },
         { key: "id", label: "ID" },
-        { key: "dernierRemplacement", label: "Dernier remplacement (ISO)" }
+        { key: "dernierRemplacement", label: "Dernier remplacement" }
       ]},
+
       links: { type: "table", columns: [
         { key: "label", label: "Label" },
         { key: "url", label: "URL" }
@@ -666,6 +651,23 @@ export default function createAdminEditorRouter() {
     return router;
   }
 
+
+  // Ajout: édition du fichier FTP /service/kilometrage/params.json (liste des tournées/transporteurs)
+  const EXTRA_REGISTRY = [
+    {
+      key: "kilometrage-params",
+      label: "Paramètres Kilométrage",
+      page: "kilometrage",
+      filename: "kilometrage/params.json",
+      editor: "kilometrage_params"
+    }
+  ];
+  const editorRegistry = [...registry, ...EXTRA_REGISTRY];
+
+  function getEntryByKey(key) {
+    return editorRegistry.find(e => e.key === key) || null;
+  }
+
   const limiter = rateLimit({
     windowMs: 5 * 60 * 1000,
     max: 5,
@@ -679,7 +681,7 @@ export default function createAdminEditorRouter() {
     if (!req.session?.adminAuthed) return res.redirect(`/${basePath}/login`);
     const token = ensureCsrf(req);
     res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(editorPage(`/${basePath}`, token));
+    return res.status(200).send(editorPage(`/${basePath}`, token, editorRegistry));
   });
 
   router.get(`/${basePath}/setup`, limiter, async (req, res) => {
@@ -761,7 +763,7 @@ export default function createAdminEditorRouter() {
 
   router.get(`/${basePath}/api/load`, requireAuth, async (req, res) => {
     const key = String(req.query?.key || "").trim();
-    const entry = resolveJsonEntry(key);
+    const entry = getEntryByKey(key);
     if (!entry) return res.status(404).json({ ok: false, error: "unknown_key" });
     try {
       let data = await ftpStorage.readJson(entry.filename);
@@ -790,7 +792,7 @@ export default function createAdminEditorRouter() {
 
   router.post(`/${basePath}/api/save`, requireAuth, requireCsrf, express.json({ limit: "2mb" }), async (req, res) => {
     const key = String(req.body?.key || "").trim();
-    const entry = resolveJsonEntry(key);
+    const entry = getEntryByKey(key);
     if (!entry) return res.status(404).json({ ok: false, error: "unknown_key" });
     const data = req.body?.data;
     if (data === undefined) {
