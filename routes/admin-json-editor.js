@@ -128,7 +128,6 @@ function editorPage(baseUrl, csrfToken) {
     <select id="pageKey"></select>
     <div class="row" style="margin-top:12px">
       <button class="btn" id="btnLoad" type="button">Charger</button>
-      <button class="btn" id="btnSave" type="button">Enregistrer</button>
     </div>
     <div id="editorArea" class="grid" style="margin-top:14px"></div>
     <details style="margin-top:12px">
@@ -137,6 +136,9 @@ function editorPage(baseUrl, csrfToken) {
     </details>
     <div class="row" style="margin-top:10px">
       <div class="muted">Dernière modification: <span id="lastMod">—</span></div>
+    </div>
+    <div class="row" style="margin-top:14px; justify-content:flex-end">
+      <button class="btn" id="btnSave" type="button">Enregistrer</button>
     </div>
     <form method="POST" action="${baseUrl}/logout" style="margin-top:12px">
       <input type="hidden" name="csrfToken" value="${csrfToken}"/>
