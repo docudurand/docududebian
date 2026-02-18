@@ -430,7 +430,7 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
     <div class="filters">
       <a
         class="create-tour-link"
-        href="/kilometrage-qrcodes.html"
+        href="/public/kilometrage-qrcodes.html"
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -758,13 +758,28 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
             encodeURIComponent(currentYear)
         );
 
-        const data = await res.json().catch(() => []);
+        const data = await res.json().catch(() => null);
+
+        // Si HTTP != 200, ou si le backend renvoie un objet d'erreur (pas un tableau)
+        if (!res.ok || !Array.isArray(data)) {
+          console.error("API KM error:", data);
+          monthsContainer.innerHTML = "";
+          currentData = [];
+          const msg =
+            data && typeof data === "object" && data.error
+              ? data.error
+              : "Erreur serveur kilométrage.";
+          statusEl.textContent = msg;
+          buildMonthsTables({ });
+          return;
+        }
+
         console.log("Données kilométrage reçues :", data);
-        currentData = Array.isArray(data) ? data : [];
+        currentData = data;
 
         monthsContainer.innerHTML = "";
 
-        if (!Array.isArray(data) || data.length === 0) {
+        if (data.length === 0) {
           statusEl.innerHTML =
             'Aucune donnée de kilométrage trouvée pour <span>' +
             currentAgence +
@@ -809,7 +824,7 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
           if (!grouped[monthIndex]) grouped[monthIndex] = {};
           if (!grouped[monthIndex][tourneeKey]) grouped[monthIndex][tourneeKey] = {};
           if (!grouped[monthIndex][tourneeKey][day]) {
-            grouped[monthIndex][tourneeKey][day] = { km: 0, commentaires: [], absent: false, absenceInfo: "" };
+            grouped[monthIndex][tourneeKey][day] = { horaires: {}, commentaires: [], absent: false, absenceInfo: "" };
           }
 
           if (isAbsent) {
@@ -817,7 +832,24 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
             grouped[monthIndex][tourneeKey][day].absenceInfo =
               commentaire.replace(/^@ABSENT@\s*/,"").trim();
           } else {
-            grouped[monthIndex][tourneeKey][day].km += km;
+            // Stocker par horaire pour calculer (12h-8h)+(18h-14h)
+            const horaire = (row.horaire || "").toLowerCase().trim();
+            if (horaire) {
+              // En cas de doublons sur un même horaire, on garde la valeur la plus cohérente
+              // (odomètre) : départ (8h/14h) => min, arrivée (12h/18h) => max
+              const prev = grouped[monthIndex][tourneeKey][day].horaires[horaire];
+              if (prev === undefined) {
+                grouped[monthIndex][tourneeKey][day].horaires[horaire] = km;
+              } else {
+                if (horaire === "8h" || horaire === "14h") {
+                  grouped[monthIndex][tourneeKey][day].horaires[horaire] = Math.min(prev, km);
+                } else if (horaire === "12h" || horaire === "18h") {
+                  grouped[monthIndex][tourneeKey][day].horaires[horaire] = Math.max(prev, km);
+                } else {
+                  grouped[monthIndex][tourneeKey][day].horaires[horaire] = km;
+                }
+              }
+            }
           }
 
           if (commentaire && !isAbsent) {
@@ -945,7 +977,19 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
               const dayObj = daysByDay[day];
 
               const isAbsent = dayObj && dayObj.absent === true;
-              const km = dayObj ? (dayObj.km || 0) : 0;
+              // Calcul (km12h - km8h) + (km18h - km14h) depuis les 4 relevés
+              const km = (() => {
+                if (!dayObj) return 0;
+                const h = dayObj.horaires || {};
+                const k8  = h["8h"]  ?? null;
+                const k12 = h["12h"] ?? null;
+                const k14 = h["14h"] ?? null;
+                const k18 = h["18h"] ?? null;
+                let total = 0;
+                if (k12 !== null && k8 !== null) total += (k12 - k8);
+                if (k18 !== null && k14 !== null) total += (k18 - k14);
+                return total;
+              })();
               const commentaires = dayObj && dayObj.commentaires ? dayObj.commentaires : [];
               const hasComment = commentaires.length > 0;
 
@@ -1143,17 +1187,12 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
 
       const rows = [];
 
+      // Grouper par tournée+date pour reconstruire les 4 horaires
+      const byKey = {};
       currentData.forEach((row) => {
         let d = null;
-
-        if (row.date) {
-          const d1 = new Date(row.date);
-          if (!isNaN(d1)) d = d1;
-        }
-        if (!d && row.timestamp) {
-          const d2 = new Date(row.timestamp);
-          if (!isNaN(d2)) d = d2;
-        }
+        if (row.date) { const d1 = new Date(row.date); if (!isNaN(d1)) d = d1; }
+        if (!d && row.timestamp) { const d2 = new Date(row.timestamp); if (!isNaN(d2)) d = d2; }
         if (!d) return;
 
         const month = d.getMonth() + 1;
@@ -1162,39 +1201,62 @@ html.dsg-in-iframe, html.dsg-in-iframe body {
 
         const day = d.getDate();
         const dateStr =
-          String(day).padStart(2, "0") +
-          "/" +
-          String(monthIndex).padStart(2, "0") +
-          "/" +
-          currentYear;
+          String(day).padStart(2, "0") + "/" +
+          String(monthIndex).padStart(2, "0") + "/" + currentYear;
 
-        const tournee = row.tournee || row.codeTournee || "Tournée inconnue";
+        const tournee  = row.tournee  || row.codeTournee  || "Tournée inconnue";
         const chauffeur = row.chauffeur || row.codeChauffeur || "Inconnu";
-
         const commentaire = (row.commentaire || "").trim();
         const isAbsent = commentaire.startsWith("@ABSENT@");
-        const absenceInfo = commentaire.replace(/^@ABSENT@\s*/,"").trim();
+        const key = tournee + "|" + dateStr;
 
-        const km8h  = row.km8h;
-        const km12h = row.km12h;
-        const km14h = row.km14h;
-        const km18h = row.km18h;
-        const total = (row.km === 0 || row.km) ? row.km : "";
-
-        rows.push({
-          date: dateStr,
-          tournee,
-          chauffeur,
-          km8h,
-          km12h,
-          km14h,
-          km18h,
-          total,
-          absent: isAbsent,
-          info: absenceInfo,
-		  commentaire: isAbsent ? "" : commentaire
-        });
+        if (!byKey[key]) {
+          byKey[key] = {
+            date: dateStr, day, tournee, chauffeur,
+            horaires: {}, absent: false, info: "", commentaire: ""
+          };
+        }
+        if (isAbsent) {
+          byKey[key].absent = true;
+          byKey[key].info = commentaire.replace(/^@ABSENT@\s*/,"").trim();
+        } else {
+          const horaire = (row.horaire || "").toLowerCase().trim();
+          if (horaire && row.km !== null && row.km !== "") {
+            byKey[key].horaires[horaire] = Number(row.km);
+          }
+          if (commentaire) byKey[key].commentaire = commentaire;
+        }
       });
+
+      // Construire les lignes triées par date puis tournée
+      Object.values(byKey)
+        .sort((a, b) => a.day - b.day || a.tournee.localeCompare(b.tournee))
+        .forEach(item => {
+          const h = item.horaires;
+          const k8  = h["8h"]  ?? null;
+          const k12 = h["12h"] ?? null;
+          const k14 = h["14h"] ?? null;
+          const k18 = h["18h"] ?? null;
+          // Calcul KmJour = (km12h - km8h) + (km18h - km14h)
+          let total = 0;
+          if (k12 !== null && k8 !== null) total += (k12 - k8);
+          if (k18 !== null && k14 !== null) total += (k18 - k14);
+          const hasAny = Object.keys(h).length > 0;
+
+          rows.push({
+            date:    item.date,
+            tournee: item.tournee,
+            chauffeur: item.chauffeur,
+            km8h:  k8,
+            km12h: k12,
+            km14h: k14,
+            km18h: k18,
+            total: hasAny ? total : "",
+            absent: item.absent,
+            info:   item.info,
+            commentaire: item.commentaire
+          });
+        });
 
       if (!rows.length) {
         const p = document.createElement("p");

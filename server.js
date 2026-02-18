@@ -38,7 +38,7 @@ import atelierRouter from "./atelier/index.js";
 import presences from "./routes/presences.js";
 import ramasseRouter from "./routes/ramasse.js";
 import kilometrageRouter from "./routes/kilometrage.js";
-import garantieRouter from "./garantie-module/routes.js";
+import garantieRouter from "./garantie-module/routes.mjs";
 import "./mailInlineWorker.js";
 
 // Chargement des variables d'environnement (via dotenv/config import)

@@ -324,7 +324,7 @@
 
 </style>
 
-<script src="/js/html5-qrcode.min.js"></script>
+<script src="js/html5-qrcode.min.js"></script>
 <script>
   const API_BASE = "";
   const apiUrl = (u) => (String(u).startsWith("http") ? u : (API_BASE + u));
@@ -670,7 +670,8 @@ let idQr          = params.get("id")            || "";
         codeTournee,
         chauffeur,
         codeChauffeur,
-		id: idQr
+		id: idQr,
+        horaire: String((horaireSelect && horaireSelect.value) || "").toLowerCase().trim()
       };
       try {
         localStorage.setItem("kmConfig", JSON.stringify(cfg));
@@ -755,12 +756,13 @@ let idQr          = params.get("id")            || "";
     }
 
     async function loadResume() {
+      // Affiche les relevés déjà saisis pour cette tournée et cette date
       resume8hEl.textContent  = "-";
       resume12hEl.textContent = "-";
       resume14hEl.textContent = "-";
       resume18hEl.textContent = "-";
 
-      const dateValue = dateInput.value;
+      const dateValue = dateInput.value; // YYYY-MM-DD (input type="date")
       if (!dateValue || !codeTournee) {
         setResumeLoading(false);
         return;
@@ -768,94 +770,52 @@ let idQr          = params.get("id")            || "";
 
       setResumeLoading(true);
 
-      const year = dateValue.slice(0, 4);
-
-      const qs = new URLSearchParams({
-        agence: agence || codeAgence || "",
-        year: year
-      });
-
-function normalizeRowDate(row) {
-  const pick = (v) => (v === null || v === undefined) ? "" : String(v).trim();
-
-  const toLocalYMD = (d) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-
-  let s = pick(row.date);
-  if (s) {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
-      const d = new Date(s);
-      if (!isNaN(d)) return toLocalYMD(d);
-      return s.slice(0, 10);
-    }
-
-    let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  }
-
-  s = pick(row.timestamp);
-  if (s) {
-
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
-      const d = new Date(s);
-      if (!isNaN(d)) return toLocalYMD(d);
-      return s.slice(0, 10);
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-
-    let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  }
-
-  return "";
-}
-
       try {
-        const res = await fetch(apiUrl("/api/kilometrage/data?" + qs.toString()));
-        const data = await res.json().catch(() => null);
-
-        console.log("Données reçues pour résumé :", data);
-
-        if (!Array.isArray(data) || data.length === 0) {
-          console.log("Aucune donnée trouvée pour cette agence / année");
-          return;
-        }
-
-        const dateKey        = dateValue;
-        const agenceKey      = (codeAgence || agence || "").toUpperCase();
-        const codeTourneeKey = (codeTournee || "").toString().trim();
-
-        const ligne = data.find((row) => {
-          const rowAgence = (row.codeAgence || row.agence || "").toString().toUpperCase();
-          const rowCodeTournee = (row.codeTournee || "").toString().trim();
-          const rowDate = normalizeRowDate(row);
-
-          return (
-            rowAgence === agenceKey &&
-            rowCodeTournee === codeTourneeKey &&
-            rowDate === dateKey
-          );
+        const qs = new URLSearchParams({
+          agence: agence || codeAgence || "",
+          date: dateValue,
+          codeTournee: codeTournee || "",
+          codeChauffeur: codeChauffeur || ""
+          // id: id || ""   // on ne filtre pas par id car l'historique migré peut avoir id=null
         });
 
-        console.log("Ligne trouvée pour résumé :", ligne);
+        const res = await fetch(apiUrl("/api/kilometrage/resume?" + qs.toString()));
+        const json = await res.json().catch(() => ({}));
 
-        if (!ligne) {
-          return;
+        if (!res.ok || json.success === false) {
+          throw new Error(json.error || "Erreur serveur");
         }
 
-        if (ligne.km8h  !== null && ligne.km8h  !== "") resume8hEl.textContent  = ligne.km8h;
-        if (ligne.km12h !== null && ligne.km12h !== "") resume12hEl.textContent = ligne.km12h;
-        if (ligne.km14h !== null && ligne.km14h !== "") resume14hEl.textContent = ligne.km14h;
-        if (ligne.km18h !== null && ligne.km18h !== "") resume18hEl.textContent = ligne.km18h;
+        const rows = Array.isArray(json.rows) ? json.rows : [];
+        console.log("Résumé (rows) :", rows);
+
+        // Construit une map { '8h': 123, '12h': 456, ... } à partir des relevés bruts
+        const byHoraire = {};
+        for (const r of rows) {
+          if (String(r.type || "") !== "releve") continue;
+
+          const h = String(r.horaire || "").toLowerCase().trim(); // "8h", "12h", ...
+          const km = (r.km === "" || r.km === null || typeof r.km === "undefined") ? null : Number(r.km);
+          if (!h || km === null || Number.isNaN(km)) continue;
+
+          // En cas de doublon sur un même horaire, on applique la même logique que le suivi :
+          // départ (8h/14h) => min, arrivée (12h/18h) => max
+          const prev = byHoraire[h];
+          if (prev === undefined) {
+            byHoraire[h] = km;
+          } else {
+            if (h === "8h" || h === "14h") byHoraire[h] = Math.min(prev, km);
+            else if (h === "12h" || h === "18h") byHoraire[h] = Math.max(prev, km);
+            else byHoraire[h] = km;
+          }
+        }
+
+        if (byHoraire["8h"]  !== undefined)  resume8hEl.textContent  = byHoraire["8h"];
+        if (byHoraire["12h"] !== undefined) resume12hEl.textContent = byHoraire["12h"];
+        if (byHoraire["14h"] !== undefined) resume14hEl.textContent = byHoraire["14h"];
+        if (byHoraire["18h"] !== undefined) resume18hEl.textContent = byHoraire["18h"];
       } catch (err) {
-        console.error("Erreur chargement résumé (via /data) :", err);
+        console.error("Erreur chargement résumé (via /resume) :", err);
       } finally {
         setResumeLoading(false);
       }
@@ -872,7 +832,7 @@ function normalizeRowDate(row) {
       const dateValue = dateInput.value;
       const horaireValue = horaireSelect.value;
       const kmValue = kmInput.value;
-      const commentaireUser = document.getElementById("commentaire").value || "";
+      const commentaireUser = (document.getElementById("commentaire").value || "").trim();
 
       if (!codeTournee) {
         messageEl.textContent =
@@ -893,7 +853,6 @@ function normalizeRowDate(row) {
       }
 
       const kmNumber = Number(kmValue);
-      const commentaireEncoded = `@${horaireValue}@${commentaireUser}`;
 
             const payload = {
         agence,
@@ -904,8 +863,9 @@ function normalizeRowDate(row) {
         codeChauffeur,
         date: dateValue,
         km: kmNumber,
-        commentaire: commentaireEncoded,
-        id: idQr
+        commentaire: commentaireUser,
+        id: idQr,
+        horaire: String((horaireSelect && horaireSelect.value) || "").toLowerCase().trim()
       };
 
       submitBtn.disabled = true;
