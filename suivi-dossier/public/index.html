@@ -711,7 +711,7 @@ function draw(){
       tr.innerHTML = `
         <td class="col-no nowrap"        title="${String(r.no)}">${String(r.no).padStart(5,'0')}</td>
         <td class="col-magasin wrap-ok"  title="${r.magasin||""}">${r.magasin||""}</td>
-        <td class="col-compte nowrap"    title="${r.compte||""}">${r.compte||""}</td>
+        <td class="col-compte truncate"  title="${r.compte||""}">${r.compte||""}</td>
         <td class="col-client truncate"  title="${r.client||""}">${r.client||""}</td>
         <td class="col-service truncate" title="${r.service||""}">${r.service||""}</td>
         <td class="col-date nowrap"      title="${fmtJJMMYYYYdash(r.demandeDate)}">${fmtJJMMYYYYdash(r.demandeDate)}</td>
