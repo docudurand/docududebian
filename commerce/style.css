@@ -8,7 +8,7 @@
   --radius: 18px;
 
   /* Largeur cible tablette (on garde la logique), mais la frame peut occuper 100% de l’écran */
-  --ipadW: 1200px;
+  --ipadW: 1400px;
 }
 
 *{ box-sizing: border-box; }
@@ -63,8 +63,8 @@ body{
   justify-content: center; /* centre le cadre tablette */
 }
 .frame{
-  width: min(100%, var(--ipadW)); /* garde format tablette */
-  margin: 0 auto;
+  width: 100%;
+  max-width: var(--ipadW);
   background: rgba(255,255,255,.55);
   border-radius: 10px;
   box-shadow: var(--shadow);
@@ -74,6 +74,7 @@ body{
 }
 @media (max-width: 1024px){
   .stage{ padding-left: 6px; padding-right: 6px; }
+  :root{ --ipadW: 100%; }
 }
 
 /* Vidéo accueil */
