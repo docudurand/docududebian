@@ -64,6 +64,7 @@
   tbody tr{background:#fff}
   tbody td{padding:10px 12px; font-size:.95rem; vertical-align:middle; border:0; background:#fff}
 
+  /* Mode normal (sans admin) */
   .col-no        { width: 4%  }
   .col-magasin   { width: 10% }
   .col-compte    { width: 8%  }
@@ -74,24 +75,46 @@
   .col-eta       { width: 15% }
   .col-actions   { width: 12% }
 
+  /* Mode admin : redistribution pour loger ✏️ et 🗑️ */
+  #tab.mode-admin .col-no        { width: 3%  }
+  #tab.mode-admin .col-magasin   { width: 8%  }
+  #tab.mode-admin .col-compte    { width: 7%  }
+  #tab.mode-admin .col-client    { width: 10% }
+  #tab.mode-admin .col-service   { width: 11% }
+  #tab.mode-admin .col-date      { width: 8%  }
+  #tab.mode-admin .col-statut    { width: 9%  }
+  #tab.mode-admin .col-eta       { width: 11% }
+  #tab.mode-admin .col-actions   { width: 20% }
+
+  /* Mode limited : masquer actions, redistribuer */
+  #tab.mode-limited .col-no        { width: 4%  }
+  #tab.mode-limited .col-magasin   { width: 12% }
+  #tab.mode-limited .col-compte    { width: 10% }
+  #tab.mode-limited .col-client    { width: 17% }
+  #tab.mode-limited .col-service   { width: 17% }
+  #tab.mode-limited .col-date      { width: 11% }
+  #tab.mode-limited .col-statut    { width: 13% }
+  #tab.mode-limited .col-eta       { width: 14% }
+  #tab.mode-limited .col-actions   { width: 0%; display:none; }
+
   .nowrap   { white-space:nowrap; }
   .truncate { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .wrap-ok  { white-space:normal; word-break:break-word; }
 
   .badge{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding:5px 8px;
-    border-radius:999px;
-    font-weight:700;
-    font-size:.84rem;
-    min-width:84px;
-    max-width:130px;
-    text-align:center;
-    white-space:normal;
-    line-height:1.1;
-  }
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:5px 8px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:.84rem;
+  min-width:84px;
+  max-width:130px;
+  text-align:center;
+  white-space:normal;
+  line-height:1.1;
+}
 
   .btnSave{ display: inline-flex;  align-items: center;  justify-content: center;}
   .s-1{background:var(--s1); color:var(--s1b)}
@@ -101,6 +124,13 @@
 
   .actions{display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:nowrap}
   .statusSel{padding:7px 10px; border:1px solid var(--line); border-radius:10px; font-size:.9rem; min-width:155px;}
+  #tab.mode-admin .statusSel { min-width: 120px; font-size:.82rem; padding:6px 7px; }
+  #tab.mode-admin .etaGroup  { gap: 8px; }
+  #tab.mode-admin .etaSel    { width:46px; min-width:46px; }
+  #tab.mode-admin .btnView   { min-width:52px; font-size:.8rem; padding:5px 5px; }
+  #tab.mode-admin .btnSave   { font-size:.82rem; padding:6px 7px; }
+  #tab.mode-admin .btnEdit   { padding:5px 8px; font-size:.9rem; }
+  #tab.mode-admin .btnDelete { padding:5px 8px; font-size:.9rem; }
   .etaSel{
     padding:6px 8px; border:1px solid var(--line); border-radius:10px; font-size:.9rem;
     width:54px; min-width:54px; text-align:center; appearance:auto;
@@ -126,8 +156,7 @@
   }
 
   .spinner{
-    width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:#004080;border-radius:50%;
-    animation:spin 1s linear infinite;display:inline-block;vertical-align:middle
+    width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:#004080;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle
   }
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -208,69 +237,68 @@
     user-select:none;
   }
 
-  html.dsg-in-iframe, html.dsg-in-iframe body {
-    height: auto !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-  }
+html.dsg-in-iframe, html.dsg-in-iframe body {
+  height: auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
 
-  /* Boutons admin */
-  .btnEdit {
-    appearance:none; border:1px solid #0e7490; background:#ecfeff; color:#0e7490;
-    padding:6px 9px; border-radius:10px; font-weight:700; cursor:pointer; font-size:.85rem;
-    white-space:nowrap;
-  }
-  .btnEdit:hover { background:#cffafe; }
-  .btnDelete {
-    appearance:none; border:1px solid #b91c1c; background:#fef2f2; color:#b91c1c;
-    padding:6px 9px; border-radius:10px; font-weight:700; cursor:pointer; font-size:.85rem;
-    white-space:nowrap;
-  }
-  .btnDelete:hover { background:#fee2e2; }
+/* Boutons admin */
+.btnEdit {
+  appearance:none; border:1px solid #0e7490; background:#ecfeff; color:#0e7490;
+  padding:6px 9px; border-radius:10px; font-weight:700; cursor:pointer; font-size:.85rem;
+  white-space:nowrap;
+}
+.btnEdit:hover { background:#cffafe; }
 
-  /* Modale édition admin */
-  .editMask {
-    position:fixed; inset:0; background:#0009; display:none;
-    align-items:flex-start; justify-content:center; z-index:30000; padding:16px;
-  }
-  .editBox {
-    width:min(780px,96vw); max-height:min(92vh,860px); background:#fff;
-    border-radius:14px; overflow:auto; border:1px solid #e5e7eb; margin-top:10px;
-  }
-  .editBar {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:10px 14px; border-bottom:1px solid #e5e7eb; background:#f0fdf4;
-    position:sticky; top:0; z-index:1;
-  }
-  .editBar h2 { margin:0; font-size:1rem; color:#065f46; }
-  .editContent { padding:16px; }
-  .editSection { margin-bottom:18px; }
-  .editSection h3 { margin:0 0 10px; color:#0b4a6f; font-size:.93rem; border-bottom:1px solid #e5e7eb; padding-bottom:4px; }
-  .editGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .editField { display:flex; flex-direction:column; gap:4px; }
-  .editField label { font-weight:700; font-size:.82rem; color:#374151; }
-  .editField input, .editField select, .editField textarea {
-    padding:7px 9px; border:1px solid #d1d5db; border-radius:8px; font-size:.9rem; font-family:inherit;
-  }
-  .editField textarea { resize:vertical; min-height:80px; }
-  .editFooter {
-    display:flex; gap:10px; justify-content:flex-end;
-    padding:12px 14px; border-top:1px solid #e5e7eb; background:#f9fafb;
-    position:sticky; bottom:0;
-  }
-  .btnEditSave {
-    padding:9px 20px; background:#004080; color:#fff; border:0;
-    border-radius:10px; font-weight:700; font-size:.92rem; cursor:pointer;
-  }
-  .btnEditCancel {
-    padding:9px 16px; background:#fff; color:#374151; border:1px solid #d1d5db;
-    border-radius:10px; font-weight:700; font-size:.92rem; cursor:pointer;
-  }
-  .adminBadge {
-    display:inline-block; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
-    border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700;
-    margin-left:10px; vertical-align:middle;
-  }
+.btnDelete {
+  appearance:none; border:1px solid #b91c1c; background:#fef2f2; color:#b91c1c;
+  padding:6px 9px; border-radius:10px; font-weight:700; cursor:pointer; font-size:.85rem;
+  white-space:nowrap;
+}
+.btnDelete:hover { background:#fee2e2; }
+
+/* Modale édition admin */
+.editMask {
+  position:fixed; inset:0; background:#0009; display:none;
+  align-items:flex-start; justify-content:center; z-index:30000; padding:16px;
+}
+.editBox {
+  width:min(780px,96vw); max-height:min(92vh,860px); background:#fff;
+  border-radius:14px; overflow:auto; border:1px solid #e5e7eb; margin-top:10px;
+}
+.editBar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; border-bottom:1px solid #e5e7eb; background:#f0fdf4; position:sticky; top:0; z-index:1;
+}
+.editBar h2 { margin:0; font-size:1rem; color:#065f46; }
+.editContent { padding:16px; }
+.editSection { margin-bottom:18px; }
+.editSection h3 { margin:0 0 10px; color:#0b4a6f; font-size:.93rem; border-bottom:1px solid #e5e7eb; padding-bottom:4px; }
+.editGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.editField { display:flex; flex-direction:column; gap:4px; }
+.editField label { font-weight:700; font-size:.82rem; color:#374151; }
+.editField input, .editField select, .editField textarea {
+  padding:7px 9px; border:1px solid #d1d5db; border-radius:8px; font-size:.9rem; font-family:inherit;
+}
+.editField textarea { resize:vertical; min-height:80px; }
+.editFooter {
+  display:flex; gap:10px; justify-content:flex-end;
+  padding:12px 14px; border-top:1px solid #e5e7eb; background:#f9fafb; position:sticky; bottom:0;
+}
+.btnEditSave {
+  padding:9px 20px; background:#004080; color:#fff; border:0; border-radius:10px;
+  font-weight:700; font-size:.92rem; cursor:pointer;
+}
+.btnEditCancel {
+  padding:9px 16px; background:#fff; color:#374151; border:1px solid #d1d5db;
+  border-radius:10px; font-weight:700; font-size:.92rem; cursor:pointer;
+}
+.adminBadge {
+  display:inline-block; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
+  border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700; margin-left:10px; vertical-align:middle;
+}
+
 </style>
 </head>
 <body>
@@ -320,11 +348,12 @@
 })();
 </script>
 
+
+
 <div class="loginOverlay" id="loginOverlay">
   <div class="loginBox">
     <h2>Accès suivi atelier</h2>
     <p>Veuillez saisir votre mot de passe.</p>
-
     <input
       type="password"
       id="loginPassword"
@@ -341,24 +370,25 @@
 </div>
 
 <div class="wrap">
+  <h1>Suivi des dossiers Atelier</h1>
   <div class="toolbar">
-    <label>Filtrer magasin :
-      <select id="filterMag">
-        <option value="">Tous</option>
-        <option>Annemasse</option><option>Bourgoin</option><option>Chasse sur Rhone</option><option>Chassieu</option><option>Gleize</option><option>La Motte Servolex</option><option>Miribel</option>
-        <option>Renage</option><option>Rives</option><option>Seynod</option><option>St Egreve</option><option>St-Jean-Bonnefonds</option>
-      </select>
-    </label>
+  <label>Filtrer magasin :
+    <select id="filterMag">
+      <option value="">Tous</option>
+      <option>Annemasse</option><option>Bourgoin</option><option>Chasse sur Rhone</option><option>Chassieu</option><option>Gleize</option><option>La Motte Servolex</option><option>Miribel</option>
+      <option>Renage</option><option>Rives</option><option>Seynod</option><option>St Egreve</option><option>St-Jean-Bonnefonds</option>
+    </select>
+  </label>
 
-    <label id="serviceFilterContainer" style="display:none;">
-      Filtrer service :
-      <select id="filterService">
-        <option value="">Tous</option>
-      </select>
-    </label>
+  <label id="serviceFilterContainer" style="display:none;">
+    Filtrer service :
+    <select id="filterService">
+      <option value="">Tous</option>
+    </select>
+  </label>
 
-    <input id="q" type="search" placeholder="Rechercher (n°, compte, client)" style="min-width:280px" />
-  </div>
+  <input id="q" type="search" placeholder="Rechercher (n°, compte, client)" style="min-width:280px" />
+</div>
 
   <div class="yearbar" aria-label="Filtre par année et mois (Date de la demande)">
     <div class="yearTabs" role="tablist" aria-label="Années">
@@ -423,6 +453,8 @@
   </div>
 </div>
 
+<script src="/atelier/config.js"></script>
+
 <!-- Modale édition admin -->
 <div class="editMask" id="editMask" aria-hidden="true">
   <div class="editBox" role="dialog" aria-label="Modifier le dossier">
@@ -433,7 +465,9 @@
         <button class="btnEditSave" id="editSave">💾 Enregistrer</button>
       </div>
     </div>
-    <div class="editContent" id="editContent"></div>
+    <div class="editContent" id="editContent">
+      <!-- Rempli dynamiquement -->
+    </div>
     <div class="editFooter">
       <button class="btnEditCancel" id="editCancel2">Annuler</button>
       <button class="btnEditSave" id="editSave2">💾 Enregistrer</button>
@@ -442,22 +476,24 @@
 </div>
 
 <script>
+// Charger la configuration depuis /atelier/config.js
+// Le fichier définit window.__ATELIER_CFG avec les mots de passe
+const atelierCfg = window.__ATELIER_CFG || window.__SUIVI_CFG || {};
+const PASS_STE     = atelierCfg.ATELIER_SUIVI_PASS_STE     || "";
+const PASS_BG      = atelierCfg.ATELIER_SUIVI_PASS_BG      || "";
+const PASS_LIMITED = atelierCfg.ATELIER_SUIVI_PASS_LIMITED || "";
+const PASS_CHASSE  = atelierCfg.ATELIER_SUIVI_PASS_CHASSE  || "";
+const PASS_ADMIN   = atelierCfg.ATELIER_SUIVI_PASS_ADMIN   || "";
+const PASS_SUIVI_ADMIN = atelierCfg.ATELIER_SUIVI_ADMIN    || "";
+
 let LIMITED_VIEW = false;
 let VIEW_MODE    = "ALL";
-let IS_ADMIN     = false;
+let IS_ADMIN     = false; // true uniquement avec ATELIER_SUIVI_ADMIN
 
 const API_BASE =
   (location.hostname.includes("wixsite.com") || location.hostname.endsWith(".wix.com"))
-    ? ""
+    ? "https://mes-formulaires.onrender.com"
     : location.origin.replace(/\/$/, "");
-
-function apiFetch(path, options = {}) {
-  return fetch(`${API_BASE}${path}`, {
-    credentials: "same-origin",
-    cache: "no-store",
-    ...options
-  });
-}
 
 const $tbody = document.querySelector("#tab tbody");
 const $filter = document.getElementById("filterMag");
@@ -478,13 +514,6 @@ function setTableLoading(msg){
   $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#334155">
     <span class="spinner" aria-hidden="true" style="margin-right:8px"></span>${msg||"Chargement…"}
   </td></tr>`;
-}
-
-function showLoginOverlay(message = "Session expirée. Merci de vous reconnecter.") {
-  const overlay = document.getElementById("loginOverlay");
-  const errBox = document.getElementById("loginError");
-  if (overlay) overlay.style.display = "flex";
-  if (errBox) errBox.textContent = message;
 }
 
 const LABELS = ["Demande envoyé","Pièce reçu","Travaux en cours","Renvoyé"];
@@ -536,6 +565,15 @@ const MONTHS_FULL = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet",
 let YEAR_FILTER = '';
 let MONTH_FILTER = '';
 let STATUS_FILTER = '';
+
+const SERVICES_STE = [
+  "Rectification Culasse",
+  "Rectification Vilebrequin",
+  "Rectification des Volants Moteur",
+  "Regarnissages Machoires",
+  "Contrôle injection Diesel",
+  "Contrôle injection Essence"
+];
 
 function matchesServiceByView(row){
   const svc = (row.service || "").trim();
@@ -623,8 +661,7 @@ function getMaxNo(list){
 }
 
 async function fetchCasesNormalized(){
-  const r = await apiFetch("/atelier/api/cases");
-  if (r.status === 401) throw new Error("AUTH_REQUIRED");
+  const r = await fetch(`${API_BASE}/atelier/api/cases`, { cache: "no-store" });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const json = await r.json();
   const data = (json && json.data) || [];
@@ -645,15 +682,15 @@ async function fetchCasesNormalized(){
 
 function startPolling(ms = 45000){
   stopPolling();
-  POLL_TIMER = setInterval(async ()=>{
-    if (document.hidden) return;
-    if ($mask && $mask.style.display === "flex") return;
-    if (POLL_IN_FLIGHT) return;
+POLL_TIMER = setInterval(async ()=>{
+  if (document.hidden) return;
+  if ($mask && $mask.style.display === "flex") return;
+  if (POLL_IN_FLIGHT) return;
 
-    POLL_IN_FLIGHT = true;
-    try{
-      const currentServiceSelected = ($filterService && $filterService.value) ? $filterService.value : "";
-      const fresh = await fetchCasesNormalized();
+  POLL_IN_FLIGHT = true;
+  try{
+    const currentServiceSelected = ($filterService && $filterService.value) ? $filterService.value : "";
+    const fresh = await fetchCasesNormalized();
 
       const newMax = getMaxNo(fresh);
       const hadNew = newMax > (LAST_MAX_NO || 0);
@@ -677,12 +714,7 @@ function startPolling(ms = 45000){
         setTimeout(()=>{ if($legend) $legend.textContent = old; }, 3500);
       }
     } catch(e){
-      if (String(e?.message || "").includes("AUTH_REQUIRED")) {
-        stopPolling();
-        showLoginOverlay();
-      } else {
-        console.warn("[SUIVI] Polling error:", e);
-      }
+      console.warn("[SUIVI] Polling error:", e);
     } finally {
       POLL_IN_FLIGHT = false;
     }
@@ -693,7 +725,6 @@ function stopPolling(){
   if (POLL_TIMER) clearInterval(POLL_TIMER);
   POLL_TIMER = null;
 }
-
 function buildEstimateSelect(value){
   const v = (value === "" || value === null || value === undefined) ? "" : Number(value);
   let opts = `<option value="" ${v==="" ? "selected":""}></option>`;
@@ -702,7 +733,6 @@ function buildEstimateSelect(value){
   }
   return `<select class="etaSel" aria-label="Estimation Temps Travaux">${opts}</select>`;
 }
-
 function matchesYearMonth(d){
   if (!YEAR_FILTER) return true;
   if (!d) return false;
@@ -710,7 +740,6 @@ function matchesYearMonth(d){
   if (!MONTH_FILTER || MONTH_FILTER==='all') return true;
   return (d.getMonth()+1) === Number(MONTH_FILTER);
 }
-
 function buildServiceFilterOptions() {
   if (!$filterService) return;
 
@@ -731,12 +760,8 @@ function buildServiceFilterOptions() {
 
 function applyLimitedView(){
   if (!LIMITED_VIEW) return;
-
-  const thActions = document.querySelector("th.th-actions");
-  if (thActions) thActions.style.display = "none";
-  document.querySelectorAll("td.col-actions").forEach(td => { td.style.display = "none"; });
-  document.querySelectorAll("col.col-actions").forEach(col => { col.style.display = "none"; });
-
+  // La colonne actions est masquée via CSS mode-limited
+  // On ajoute juste le style readonly sur les selects ETA
   document.querySelectorAll("select.etaSel").forEach(sel => {
     sel.classList.add("readonlyLimited");
     sel.setAttribute("tabindex","-1");
@@ -759,12 +784,13 @@ function draw(){
     return nb - na;
   });
 
+
   let count = 0;
   $tbody.innerHTML = "";
-  list
+    list
     .filter(r => !mag || (r.magasin||"").toLowerCase() === mag)
     .filter(r => matchesYearMonth(parseDate(r.demandeDate)))
-    .filter(r => matchesServiceByView(r))
+    .filter(r => matchesServiceByView(r))              
     .filter(r => {
       if (!serviceFilterValue) return true;
       return (r.service || "").trim() === serviceFilterValue;
@@ -775,13 +801,18 @@ function draw(){
       const compte  = (r.compte || "").toLowerCase();
       const client  = (r.client || "").toLowerCase();
       const isNum   = /^\d+$/.test(q);
-      if (isNum) return noStr.includes(q);
+
+      if (isNum) {
+        return noStr.includes(q);
+      }
+
       return compte.includes(q) || client.includes(q);
     })
     .filter(r => {
       if (!STATUS_FILTER) return true;
       return (r.status || "") === STATUS_FILTER;
     })
+
     .forEach(r => {
       count++;
       const tr = document.createElement("tr");
@@ -810,7 +841,7 @@ function draw(){
             </select>
             <button class="btnSave">Valider</button>
             ${IS_ADMIN ? `<button class="btnEdit">✏️</button>` : ""}
-            ${IS_ADMIN ? `<button class="btnDelete">🗑️</button>` : ""}
+            ${IS_ADMIN ? `<button class="btnDelete">🗑</button>` : ""}
           </div>
         </td>
       `;
@@ -837,17 +868,12 @@ function draw(){
           saveBtn.disabled = true; statusSel.disabled = true; etaSel.disabled = true;
           saveBtn.innerHTML = `<span class="spinner" aria-hidden="true"></span>`;
 
-          const resp = await apiFetch(`/atelier/api/cases/${encodeURIComponent(r.no)}/status`, {
+          const resp = await fetch(`${API_BASE}/atelier/api/cases/${encodeURIComponent(r.no)}/status`, {
             method:"POST",
             headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ status, estimation })
           });
           if(!resp.ok){
-            if (resp.status === 401) {
-              stopPolling();
-              showLoginOverlay();
-              return;
-            }
             alert(`Erreur de mise à jour (${resp.status})`);
             return;
           }
@@ -877,15 +903,224 @@ function draw(){
     : 'Toutes années';
 
   const statusText = STATUS_FILTER
-    ? ` • Statut : ${displayStatusLabel(STATUS_FILTER)}`
-    : ' • Statut : Tous';
+  ? ` • Statut : ${displayStatusLabel(STATUS_FILTER)}`
+  : ' • Statut : Tous';
 
   $legend.textContent = `${count} dossier(s) • ${ymText}${statusText}`;
 
-  if (LIMITED_VIEW) applyLimitedView();
+  if (LIMITED_VIEW){
+    applyLimitedView();
+  }
 }
 
 function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+// ─── ADMIN : Modale d'édition ────────────────────────────────────────────────
+let _editRow = null;
+
+function openEditModal(row) {
+  _editRow = row;
+  const h = (row.snapshot && row.snapshot.header) || {};
+  const cul = (row.snapshot && row.snapshot.culasse) || {};
+  const inj = (row.snapshot && row.snapshot.injecteur) || {};
+  const com = (row.snapshot && row.snapshot.commentaires) || "";
+
+  document.getElementById("editTitle").textContent =
+    `Modifier dossier ${String(row.no).padStart(5,"0")} — ${h.service || row.service || ""}`;
+
+  const etaOpts = ["","1","2","3","4","5","6","7","8","9","10"]
+    .map(v => `<option value="${v}" ${String(row.estimation ?? "") === v ? "selected" : ""}>${v || "—"}</option>`)
+    .join("");
+
+  const statusOpts = getStatusLabelsForService(row.service)
+    .map(lbl => `<option value="${lbl}" ${row.status === lbl ? "selected" : ""}>${displayStatusLabel(lbl)}</option>`)
+    .join("");
+
+  document.getElementById("editContent").innerHTML = `
+    <div class="editSection">
+      <h3>Statut & Estimation</h3>
+      <div class="editGrid">
+        <div class="editField">
+          <label>Statut</label>
+          <select id="ef_status">${statusOpts}</select>
+        </div>
+        <div class="editField">
+          <label>Estimation Temps Travaux (Jours)</label>
+          <select id="ef_estimation">${etaOpts}</select>
+        </div>
+      </div>
+    </div>
+
+    <div class="editSection">
+      <h3>Informations client</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Magasin</label><input id="ef_magasin" value="${esc(h.magasin||row.magasin||"")}"></div>
+        <div class="editField"><label>Client</label><input id="ef_client" value="${esc(h.client||row.client||"")}"></div>
+        <div class="editField"><label>N° de compte</label><input id="ef_compte" value="${esc(h.compte||row.compte||"")}"></div>
+        <div class="editField"><label>Téléphone</label><input id="ef_telephone" value="${esc(h.telephone||"")}"></div>
+        <div class="editField"><label>Email</label><input id="ef_email" value="${esc(h.email||"")}"></div>
+        <div class="editField"><label>Véhicule</label><input id="ef_vehicule" value="${esc(h.vehicule||"")}"></div>
+        <div class="editField"><label>Immatriculation</label><input id="ef_immat" value="${esc(h.immat||"")}"></div>
+        <div class="editField"><label>Date de demande</label><input id="ef_dateDemande" value="${esc(h.dateDemande||row.demandeDate||"")}"></div>
+      </div>
+    </div>
+
+    ${(h.service === "Rectification Culasse") ? `
+    <div class="editSection">
+      <h3>Détails Culasse</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Segment (VL/PL)</label><input id="ef_segment" value="${esc(cul.segment||"")}"></div>
+        <div class="editField"><label>Cylindre</label><input id="ef_cylindre" value="${esc(cul.cylindre||"")}"></div>
+        <div class="editField"><label>Soupapes</label><input id="ef_soupapes" value="${esc(cul.soupapes||"")}"></div>
+        <div class="editField"><label>Carburant</label><input id="ef_carburant" value="${esc(cul.carburant||"")}"></div>
+      </div>
+    </div>` : ""}
+
+    ${(h.service === "Contrôle injection Diesel" || h.service === "Contrôle injection Essence") ? `
+    <div class="editSection">
+      <h3>Détails Injection</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Type</label><input id="ef_injType" value="${esc(inj.type||"")}"></div>
+        <div class="editField"><label>Nombre d'injecteurs</label><input id="ef_injNombre" value="${esc(inj.nombre||"")}"></div>
+      </div>
+    </div>` : ""}
+
+    <div class="editSection">
+      <h3>Commentaires</h3>
+      <div class="editField"><textarea id="ef_commentaires">${esc(com)}</textarea></div>
+    </div>
+  `;
+
+  const editMask = document.getElementById("editMask");
+  editMask.style.display = "flex";
+  editMask.setAttribute("aria-hidden","false");
+}
+
+async function saveEditModal() {
+  if (!_editRow) return;
+  const row = _editRow;
+  const saveBtn = document.getElementById("editSave");
+  const saveBtn2 = document.getElementById("editSave2");
+
+  const get = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
+
+  const status = get("ef_status") || row.status;
+  const estimation = get("ef_estimation") !== null
+    ? (get("ef_estimation") ? Number(get("ef_estimation")) : "")
+    : row.estimation;
+
+  // Reconstruire le snapshot mis à jour
+  const newSnapshot = JSON.parse(JSON.stringify(row.snapshot || {}));
+  if (!newSnapshot.header) newSnapshot.header = {};
+
+  const hFields = ["magasin","client","compte","telephone","email","vehicule","immat","dateDemande"];
+  hFields.forEach(f => {
+    const val = get(`ef_${f}`);
+    if (val !== null) newSnapshot.header[f] = val;
+  });
+
+  // Commentaires
+  const com = get("ef_commentaires");
+  if (com !== null) newSnapshot.commentaires = com;
+
+  // Culasse
+  const svc = newSnapshot.header.service || row.service || "";
+  if (svc === "Rectification Culasse") {
+    if (!newSnapshot.culasse) newSnapshot.culasse = {};
+    ["segment","cylindre","soupapes","carburant"].forEach(f => {
+      const v = get(`ef_${f}`);
+      if (v !== null) newSnapshot.culasse[f] = v;
+    });
+  }
+
+  // Injection
+  if (svc.startsWith("Contrôle injection")) {
+    if (!newSnapshot.injecteur) newSnapshot.injecteur = {};
+    const t = get("ef_injType"); if (t !== null) newSnapshot.injecteur.type = t;
+    const n = get("ef_injNombre"); if (n !== null) newSnapshot.injecteur.nombre = n;
+  }
+
+  const updates = {
+    status,
+    estimation,
+    magasin: newSnapshot.header.magasin || row.magasin,
+    compte:  newSnapshot.header.compte  || row.compte,
+    client:  newSnapshot.header.client  || row.client,
+    demandeDate: newSnapshot.header.dateDemande || row.demandeDate,
+    snapshot: newSnapshot
+  };
+
+  try {
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Enregistrement…"; }
+    if (saveBtn2) { saveBtn2.disabled = true; saveBtn2.textContent = "Enregistrement…"; }
+
+    const resp = await fetch(`${API_BASE}/atelier/api/cases/${encodeURIComponent(row.no)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates)
+    });
+
+    if (!resp.ok) { alert(`Erreur lors de la sauvegarde (${resp.status})`); return; }
+
+    const data = await resp.json();
+
+    // Mettre à jour la ligne locale
+    Object.assign(row, updates);
+    if (data.data) Object.assign(row, data.data);
+
+    closeEditModal();
+    draw();
+  } catch(e) {
+    alert("Erreur réseau : " + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "💾 Enregistrer"; }
+    if (saveBtn2) { saveBtn2.disabled = false; saveBtn2.textContent = "💾 Enregistrer"; }
+  }
+}
+
+function closeEditModal() {
+  const editMask = document.getElementById("editMask");
+  editMask.style.display = "none";
+  editMask.setAttribute("aria-hidden","true");
+  document.getElementById("editContent").innerHTML = "";
+  _editRow = null;
+}
+
+async function deleteDossier(row, tr) {
+  const label = `Dossier ${String(row.no).padStart(5,"0")} — ${row.client || ""} (${row.magasin || ""})`;
+  if (!confirm(`⚠️ Supprimer définitivement ce dossier ?\n\n${label}\n\nCette action est irréversible.`)) return;
+
+  try {
+    const resp = await fetch(`${API_BASE}/atelier/api/cases/${encodeURIComponent(row.no)}`, {
+      method: "DELETE"
+    });
+    if (!resp.ok) { alert(`Erreur lors de la suppression (${resp.status})`); return; }
+
+    // Retirer de la liste locale
+    const idx = rows.findIndex(r => String(r.no) === String(row.no));
+    if (idx !== -1) rows.splice(idx, 1);
+    tr.remove();
+
+    // Mettre à jour le compteur
+    const count = $tbody.querySelectorAll("tr").length;
+    if (count === 0) {
+      $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#334155">Aucun dossier.</td></tr>`;
+    }
+  } catch(e) {
+    alert("Erreur réseau : " + e.message);
+  }
+}
+
+// Fermeture modale édition
+document.getElementById("editCancel").addEventListener("click", closeEditModal);
+document.getElementById("editCancel2").addEventListener("click", closeEditModal);
+document.getElementById("editSave").addEventListener("click", saveEditModal);
+document.getElementById("editSave2").addEventListener("click", saveEditModal);
+document.getElementById("editMask").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeEditModal();
+});
+// ─── fin ADMIN ───────────────────────────────────────────────────────────────
+
 
 function openDetails(row){
   const h = (row.snapshot && row.snapshot.header) || {};
@@ -960,13 +1195,11 @@ function openDetails(row){
   $mask.style.display = "flex";
   $mask.setAttribute("aria-hidden","false");
 }
-
 document.getElementById("btnClose").addEventListener("click", ()=>{
   $mask.style.display = "none";
   $mask.setAttribute("aria-hidden","true");
   $modalContent.innerHTML = "";
 });
-
 document.getElementById("btnPrint").addEventListener("click", () => {
   const w = window.open("", "_blank");
   if (!w) {
@@ -1001,7 +1234,10 @@ document.getElementById("btnPrint").addEventListener("click", () => {
   w.addEventListener("load", () => {
     w.focus();
     w.print();
-    w.addEventListener("afterprint", () => { w.close(); });
+
+    w.addEventListener("afterprint", () => {
+      w.close();
+    });
   });
 });
 
@@ -1023,212 +1259,41 @@ function load(){
     draw();
   }
 
-  (async ()=>{
-    let authError = false;
-    try{
-      const fresh = await fetchCasesNormalized();
-      rows = fresh;
-      LAST_MAX_NO = getMaxNo(fresh);
-    } catch(e){
-      if (String(e?.message || "").includes("AUTH_REQUIRED")) {
-        authError = true;
-        showLoginOverlay();
-      } else {
-        console.error(e);
-        $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#b91c1c">Erreur de chargement.</td></tr>`;
-      }
-    } finally {
-      IS_LOADING = false;
-
-      if (LIMITED_VIEW) {
-        if ($serviceFilterContainer) $serviceFilterContainer.style.display = "inline-block";
-        buildServiceFilterOptions();
-      } else {
-        if ($serviceFilterContainer) $serviceFilterContainer.style.display = "none";
-      }
-
-      draw();
-
-      if (!authError) {
-        startPolling(45000);
-        window.addEventListener("beforeunload", stopPolling);
-      }
-    }
-  })();
-}
-
-// ─── ADMIN : Modifier / Supprimer ────────────────────────────────────────────
-let _editRow = null;
-
-function openEditModal(row) {
-  _editRow = row;
-  const h = (row.snapshot && row.snapshot.header) || {};
-  const cul = (row.snapshot && row.snapshot.culasse) || {};
-  const inj = (row.snapshot && row.snapshot.injecteur) || {};
-  const com = (row.snapshot && row.snapshot.commentaires) || "";
-  const svc = h.service || row.service || "";
-
-  document.getElementById("editTitle").textContent =
-    `Modifier dossier ${String(row.no).padStart(5,"0")} — ${svc}`;
-
-  const etaOpts = ["","1","2","3","4","5","6","7","8","9","10"]
-    .map(v => `<option value="${v}" ${String(row.estimation ?? "") === v ? "selected" : ""}>${v || "—"}</option>`)
-    .join("");
-
-  const statusOpts = getStatusLabelsForService(row.service)
-    .map(lbl => `<option value="${lbl}" ${row.status === lbl ? "selected" : ""}>${displayStatusLabel(lbl)}</option>`)
-    .join("");
-
-  document.getElementById("editContent").innerHTML = `
-    <div class="editSection">
-      <h3>Statut &amp; Estimation</h3>
-      <div class="editGrid">
-        <div class="editField"><label>Statut</label><select id="ef_status">${statusOpts}</select></div>
-        <div class="editField"><label>Estimation Temps Travaux (Jours)</label><select id="ef_estimation">${etaOpts}</select></div>
-      </div>
-    </div>
-    <div class="editSection">
-      <h3>Informations client</h3>
-      <div class="editGrid">
-        <div class="editField"><label>Magasin</label><input id="ef_magasin" value="${esc(h.magasin||row.magasin||"")}"></div>
-        <div class="editField"><label>Client</label><input id="ef_client" value="${esc(h.client||row.client||"")}"></div>
-        <div class="editField"><label>N° de compte</label><input id="ef_compte" value="${esc(h.compte||row.compte||"")}"></div>
-        <div class="editField"><label>Téléphone</label><input id="ef_telephone" value="${esc(h.telephone||"")}"></div>
-        <div class="editField"><label>Email</label><input id="ef_email" value="${esc(h.email||"")}"></div>
-        <div class="editField"><label>Véhicule</label><input id="ef_vehicule" value="${esc(h.vehicule||"")}"></div>
-        <div class="editField"><label>Immatriculation</label><input id="ef_immat" value="${esc(h.immat||"")}"></div>
-        <div class="editField"><label>Date de demande</label><input id="ef_dateDemande" value="${esc(h.dateDemande||row.demandeDate||"")}"></div>
-      </div>
-    </div>
-    ${svc === "Rectification Culasse" ? `
-    <div class="editSection">
-      <h3>Détails Culasse</h3>
-      <div class="editGrid">
-        <div class="editField"><label>Segment (VL/PL)</label><input id="ef_segment" value="${esc(cul.segment||"")}"></div>
-        <div class="editField"><label>Cylindre</label><input id="ef_cylindre" value="${esc(cul.cylindre||"")}"></div>
-        <div class="editField"><label>Soupapes</label><input id="ef_soupapes" value="${esc(cul.soupapes||"")}"></div>
-        <div class="editField"><label>Carburant</label><input id="ef_carburant" value="${esc(cul.carburant||"")}"></div>
-      </div>
-    </div>` : ""}
-    ${(svc === "Contrôle injection Diesel" || svc === "Contrôle injection Essence") ? `
-    <div class="editSection">
-      <h3>Détails Injection</h3>
-      <div class="editGrid">
-        <div class="editField"><label>Type</label><input id="ef_injType" value="${esc(inj.type||"")}"></div>
-        <div class="editField"><label>Nombre d'injecteurs</label><input id="ef_injNombre" value="${esc(inj.nombre||"")}"></div>
-      </div>
-    </div>` : ""}
-    <div class="editSection">
-      <h3>Commentaires</h3>
-      <div class="editField"><textarea id="ef_commentaires">${esc(com)}</textarea></div>
-    </div>
-  `;
-
-  const editMask = document.getElementById("editMask");
-  editMask.style.display = "flex";
-  editMask.setAttribute("aria-hidden","false");
-}
-
-function closeEditModal() {
-  const editMask = document.getElementById("editMask");
-  editMask.style.display = "none";
-  editMask.setAttribute("aria-hidden","true");
-  document.getElementById("editContent").innerHTML = "";
-  _editRow = null;
-}
-
-async function saveEditModal() {
-  if (!_editRow) return;
-  const row = _editRow;
-  const get = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
-
-  const status = get("ef_status") || row.status;
-  const estVal = get("ef_estimation");
-  const estimation = estVal !== null ? (estVal ? Number(estVal) : "") : row.estimation;
-
-  const newSnapshot = JSON.parse(JSON.stringify(row.snapshot || {}));
-  if (!newSnapshot.header) newSnapshot.header = {};
-
-  ["magasin","client","compte","telephone","email","vehicule","immat","dateDemande"].forEach(f => {
-    const v = get(`ef_${f}`); if (v !== null) newSnapshot.header[f] = v;
-  });
-
-  const com = get("ef_commentaires");
-  if (com !== null) newSnapshot.commentaires = com;
-
-  const svc = newSnapshot.header.service || row.service || "";
-  if (svc === "Rectification Culasse") {
-    if (!newSnapshot.culasse) newSnapshot.culasse = {};
-    ["segment","cylindre","soupapes","carburant"].forEach(f => {
-      const v = get(`ef_${f}`); if (v !== null) newSnapshot.culasse[f] = v;
-    });
-  }
-  if (svc.startsWith("Contrôle injection")) {
-    if (!newSnapshot.injecteur) newSnapshot.injecteur = {};
-    const t = get("ef_injType"); if (t !== null) newSnapshot.injecteur.type = t;
-    const n = get("ef_injNombre"); if (n !== null) newSnapshot.injecteur.nombre = n;
-  }
-
-  const updates = {
-    status, estimation,
-    magasin: newSnapshot.header.magasin || row.magasin,
-    compte:  newSnapshot.header.compte  || row.compte,
-    client:  newSnapshot.header.client  || row.client,
-    demandeDate: newSnapshot.header.dateDemande || row.demandeDate,
-    snapshot: newSnapshot
-  };
-
-  const s1 = document.getElementById("editSave");
-  const s2 = document.getElementById("editSave2");
-  try {
-    [s1,s2].forEach(b => { if(b){ b.disabled=true; b.textContent="Enregistrement…"; } });
-    const resp = await apiFetch(`/atelier/api/cases/${encodeURIComponent(row.no)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updates)
-    });
-    if (!resp.ok) { alert(`Erreur lors de la sauvegarde (${resp.status})`); return; }
-    const data = await resp.json();
-    Object.assign(row, updates);
-    if (data.data) Object.assign(row, data.data);
-    closeEditModal();
-    draw();
-  } catch(e) {
-    alert("Erreur réseau : " + e.message);
+(async ()=>{
+  try{
+    const fresh = await fetchCasesNormalized();
+    rows = fresh;
+    LAST_MAX_NO = getMaxNo(fresh);
+  } catch(e){
+    console.error(e);
+    $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#b91c1c">Erreur de chargement.</td></tr>`;
   } finally {
-    [s1,s2].forEach(b => { if(b){ b.disabled=false; b.textContent="💾 Enregistrer"; } });
-  }
-}
+    IS_LOADING = false;
 
-async function deleteDossier(row, tr) {
-  const label = `Dossier ${String(row.no).padStart(5,"0")} — ${row.client||""} (${row.magasin||""})`;
-  if (!confirm(`⚠️ Supprimer définitivement ce dossier ?\n\n${label}\n\nCette action est irréversible.`)) return;
-  try {
-    const resp = await apiFetch(`/atelier/api/cases/${encodeURIComponent(row.no)}`, { method: "DELETE" });
-    if (!resp.ok) { alert(`Erreur lors de la suppression (${resp.status})`); return; }
-    const idx = rows.findIndex(r => String(r.no) === String(row.no));
-    if (idx !== -1) rows.splice(idx, 1);
-    tr.remove();
-    if ($tbody.querySelectorAll("tr").length === 0) {
-      $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#334155">Aucun dossier.</td></tr>`;
+    if (LIMITED_VIEW) {
+      if ($serviceFilterContainer) {
+        $serviceFilterContainer.style.display = "inline-block";
+      }
+      buildServiceFilterOptions();
+    } else {
+      if ($serviceFilterContainer) {
+        $serviceFilterContainer.style.display = "none";
+      }
     }
-  } catch(e) {
-    alert("Erreur réseau : " + e.message);
+
+    draw();
+
+    startPolling(45000);
+	window.addEventListener("beforeunload", stopPolling);
   }
+})();
 }
-
-document.getElementById("editCancel").addEventListener("click", closeEditModal);
-document.getElementById("editCancel2").addEventListener("click", closeEditModal);
-document.getElementById("editSave").addEventListener("click", saveEditModal);
-document.getElementById("editSave2").addEventListener("click", saveEditModal);
-document.getElementById("editMask").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) closeEditModal();
-});
-// ─── fin ADMIN ───────────────────────────────────────────────────────────────
-
 $filter.addEventListener("change", draw);
 $q.addEventListener("input", draw);
-if ($filterService) $filterService.addEventListener("change", draw);
+
+if ($filterService) {
+  $filterService.addEventListener("change", draw);
+}
 
 (function initLogin(){
   const overlay = document.getElementById("loginOverlay");
@@ -1237,25 +1302,28 @@ if ($filterService) $filterService.addEventListener("change", draw);
   const errBox  = document.getElementById("loginError");
   const remember = document.getElementById("rememberPwd");
 
-  const LS_KEY = "dsg_suivi_pwd";
+  const STORAGE_KEY = "atelier_suivi_pwd";
 
-  // Restaurer la checkbox + mot de passe (si stocké)
   try {
-    const saved = localStorage.getItem(LS_KEY) || "";
-    if (remember) remember.checked = !!saved;
-    if (saved && input) input.value = saved;
-  } catch {}
-
-  function applySession(payload){
-    LIMITED_VIEW = Boolean(payload?.isLimited);
-    VIEW_MODE = String(payload?.viewMode || payload?.role || "ALL").toUpperCase();
-    if (!VIEW_MODE) VIEW_MODE = "ALL";
-    IS_ADMIN = Boolean(payload?.isAdmin);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      input.value = saved;
+      if (remember) remember.checked = true;
+    }
+  } catch (e) {
+    console.warn("localStorage indisponible", e);
   }
 
   function startApp(){
-    if (errBox) errBox.textContent = "";
     if (overlay) overlay.style.display = "none";
+    // Appliquer la classe CSS au tableau selon le mode
+    const $tab = document.getElementById("tab");
+    if ($tab) {
+      $tab.classList.remove("mode-admin", "mode-limited", "mode-normal");
+      if (IS_ADMIN)       $tab.classList.add("mode-admin");
+      else if (LIMITED_VIEW) $tab.classList.add("mode-limited");
+      else                $tab.classList.add("mode-normal");
+    }
     if (IS_ADMIN) {
       const h1 = document.querySelector("h1");
       if (h1 && !h1.querySelector(".adminBadge")) {
@@ -1265,72 +1333,124 @@ if ($filterService) $filterService.addEventListener("change", draw);
     load();
   }
 
-  async function restoreSession(){
-    try {
-      const resp = await apiFetch("/suivi-dossier/api/session");
-      if (!resp.ok) return false;
-      const payload = await resp.json().catch(() => ({}));
-      if (!payload || !payload.success) return false;
-      applySession(payload);
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  function handleLogin(){
+    const v = (input.value || "").trim();
 
-  async function handleLogin(){
-    const v = (input?.value || "").trim();
-    if (!v) {
-      if (errBox) errBox.textContent = "Mot de passe requis.";
-      if (input) input.focus();
+    if (!PASS_STE && !PASS_BG && !PASS_LIMITED && !PASS_CHASSE && !PASS_ADMIN && !PASS_SUIVI_ADMIN){
+      LIMITED_VIEW = false;
+      VIEW_MODE = "ALL";
+      startApp();
       return;
     }
 
-    if (errBox) errBox.textContent = "";
-    if (btn) btn.disabled = true;
+    if (PASS_STE && v === PASS_STE){
+      LIMITED_VIEW = false;
+      VIEW_MODE = "STE";
 
-    try {
-      const resp = await apiFetch("/suivi-dossier/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: v })
-      });
-      const payload = await resp.json().catch(() => ({}));
-      if (!resp.ok || !payload?.success) {
-        if (errBox) errBox.textContent = payload?.message || `Erreur (${resp.status})`;
-        return;
-      }
-
-      applySession(payload);
-
-      // Sauvegarder / supprimer le mot de passe selon la case à cocher
       try {
-        if (remember && remember.checked) localStorage.setItem(LS_KEY, v);
-        else localStorage.removeItem(LS_KEY);
-      } catch {}
-
-      // on vide le champ (optionnel) pour éviter d'afficher le mdp en clair après login
-      if (input) input.value = "";
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
 
       startApp();
-    } catch {
-      if (errBox) errBox.textContent = "Erreur réseau.";
-    } finally {
-      if (btn) btn.disabled = false;
+      return;
     }
+
+    if (PASS_BG && v === PASS_BG){
+      LIMITED_VIEW = false;
+      VIEW_MODE = "BG";
+
+      try {
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      startApp();
+      return;
+    }
+
+    if (PASS_CHASSE && v === PASS_CHASSE){
+      LIMITED_VIEW = false;
+      VIEW_MODE = "CHASSE";
+
+      try {
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      startApp();
+      return;
+    }
+
+    if (PASS_LIMITED && v === PASS_LIMITED){
+      LIMITED_VIEW = true;
+      VIEW_MODE = "ALL";
+
+      try {
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      startApp();
+      return;
+    }
+    if (PASS_ADMIN && v === PASS_ADMIN){
+      LIMITED_VIEW = false;
+      VIEW_MODE = "ALL"; // admin voit tout (tous services) + peut modifier
+
+      try {
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      startApp();
+      return;
+    }
+
+    if (PASS_SUIVI_ADMIN && v === PASS_SUIVI_ADMIN){
+      LIMITED_VIEW = false;
+      IS_ADMIN = true;
+      VIEW_MODE = "ALL"; // voit tous les services + boutons modifier/supprimer
+
+      try {
+        if (remember && remember.checked) {
+          localStorage.setItem(STORAGE_KEY, v);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch (e) {}
+
+      startApp();
+      return;
+    }
+
+    errBox.textContent = "Mot de passe incorrect.";
   }
 
-  if (btn) btn.addEventListener("click", handleLogin);
-  if (input) input.addEventListener("keydown", (e)=>{ if (e.key === "Enter") handleLogin(); });
+  btn.addEventListener("click", handleLogin);
+  input.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") handleLogin();
+  });
 
-  (async () => {
-    const ok = await restoreSession();
-    if (ok) {
-      startApp();
-    } else if (overlay) {
-      overlay.style.display = "flex";
-    }
-  })();
+  if (!PASS_STE && !PASS_BG && !PASS_LIMITED && !PASS_CHASSE && !PASS_ADMIN && !PASS_SUIVI_ADMIN){
+    overlay.style.display = "none";
+    startApp();
+  }
 })();
 </script>
 </body>
