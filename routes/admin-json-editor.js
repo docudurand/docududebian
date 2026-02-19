@@ -2,6 +2,10 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import qrcode from "qrcode";
 import crypto from "crypto";
+import ftp from "basic-ftp";
+import fs from "fs";
+import os from "os";
+import pathModule from "path";
 
 import * as ftpStorage from "../ftpStorage.js";
 import { registry, getByKey } from "../jsonRegistry.js";
@@ -43,6 +47,225 @@ function requireCsrf(req, res, next) {
   return next();
 }
 
+
+// --- EXTRA JSON ENTRIES (added for Kilométrage params.json) ---
+const EXTRA_JSON_ENTRIES = [
+  {
+    key: "kilometrage-params",
+    label: "Paramètres Kilométrage",
+    page: "kilometrage",
+    filename: "service/kilometrage/params.json",
+    schema: "kilometrage_params",
+  },
+  {
+    key: "kilometrage-saisies",
+    label: "Saisies Kilométriques",
+    page: "kilometrage",
+    filename: null,   // accès dynamique via routes dédiées /api/km-editor/*
+    schema: "kilometrage_saisies",
+  },
+];
+
+// ─── Helpers FTP spécifiques kilométrage ─────────────────────────────────────
+function getKmFtpConfig() {
+  const host     = String(process.env.FTP_HOST     || "").trim();
+  const user     = String(process.env.FTP_USER     || "").trim();
+  const password = String(process.env.FTP_PASS     || process.env.FTP_PASSWORD || "").trim();
+  const port     = process.env.FTP_PORT ? Number(process.env.FTP_PORT) : 21;
+  const secure   = String(process.env.FTP_SECURE   || "false").toLowerCase() === "true";
+  const rejectUnauthorized = String(process.env.FTP_TLS_REJECT_UNAUTH || "").trim() !== "0";
+  const insecure = String(process.env.FTP_TLS_INSECURE || "").trim() === "1";
+  const baseDir  = String(process.env.KM_FTP_DIR || process.env.FTP_BASE_DIR || "/kilometrage")
+    .trim().replace(/\/+$/, "");
+  return { host, user, password, port, secure, rejectUnauthorized, insecure, baseDir };
+}
+
+function kmTmpFile(prefix) {
+  const rnd = crypto.randomBytes(6).toString("hex");
+  return path.join(os.tmpdir(), `kmadmin_${prefix}_${Date.now()}_${rnd}`);
+}
+
+async function kmConnectFtp() {
+  const cfg = getKmFtpConfig();
+  if (!cfg.host || !cfg.user || !cfg.password) throw new Error("FTP_HOST/FTP_USER/FTP_PASS manquants");
+  const client = new ftp.Client(30_000);
+  client.ftp.verbose = false;
+  await client.access({
+    host: cfg.host, user: cfg.user, password: cfg.password,
+    port: cfg.port, secure: cfg.secure,
+    secureOptions: { rejectUnauthorized: cfg.rejectUnauthorized && !cfg.insecure, servername: cfg.host || undefined },
+  });
+  try { client.ftp.socket?.setKeepAlive?.(true, 10_000); } catch {}
+  return client;
+}
+
+async function kmWithFtp(fn) {
+  let client;
+  try { client = await kmConnectFtp(); return await fn(client); }
+  finally { try { client?.close(); } catch {} }
+}
+
+function kmSanitizeAgence(code) {
+  return String(code || "INCONNU").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9_\-]/g, "_").toUpperCase().replace(/_+/g, "_").replace(/^_|_$/g, "") || "INCONNU";
+}
+
+async function kmReadJson(remotePath) {
+  const tmp = kmTmpFile("read");
+  return kmWithFtp(async (client) => {
+    try {
+      await client.downloadTo(tmp, remotePath);
+      const raw = fs.readFileSync(tmp, "utf8").trim();
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch { return null; }
+    } catch (err) {
+      if (String(err?.message || "").includes("550")) return null;
+      throw err;
+    } finally { try { fs.unlinkSync(tmp); } catch {} }
+  });
+}
+
+async function kmWriteJson(remotePath, data) {
+  const tmp = kmTmpFile("write");
+  return kmWithFtp(async (client) => {
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", "utf8");
+      await client.ensureDir(path.posix.dirname(remotePath));
+      await client.uploadFrom(tmp, remotePath);
+    } finally { try { fs.unlinkSync(tmp); } catch {} }
+  });
+}
+
+function kmMonthlyPath(codeAgence, yearMonth) {
+  const { baseDir } = getKmFtpConfig();
+  const dir = kmSanitizeAgence(codeAgence);
+  return path.posix.join(baseDir, dir, `${yearMonth}.json`);
+}
+
+function kmParamsPath() {
+  const { baseDir } = getKmFtpConfig();
+  return path.posix.join(baseDir, "params.json");
+}
+// ─── fin helpers FTP kilométrage ─────────────────────────────────────────────
+
+function resolveJsonEntry(key) {
+  const k = String(key || "").trim();
+  // try registry from jsonRegistry.js first
+  const entry = getByKey(k);
+  if (entry) return entry;
+  // then extras
+  return EXTRA_JSON_ENTRIES.find(e => e.key === k) || null;
+}
+
+function getRegistryWithExtras() {
+  // avoid mutating imported registry; just extend for UI
+  return Array.isArray(registry) ? [...registry, ...EXTRA_JSON_ENTRIES] : [...EXTRA_JSON_ENTRIES];
+}
+// --- end EXTRA JSON ENTRIES ---
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KILOMÉTRAGE : helpers FTP dédiés (base dir = KM_FTP_DIR)
+// ═══════════════════════════════════════════════════════════════════════════
+function kmFtpConfig() {
+  const host     = String(process.env.FTP_HOST || "").trim();
+  const user     = String(process.env.FTP_USER || "").trim();
+  const password = String(process.env.FTP_PASS || process.env.FTP_PASSWORD || "").trim();
+  const port     = process.env.FTP_PORT ? Number(process.env.FTP_PORT) : 21;
+  const secure   = String(process.env.FTP_SECURE || "false").toLowerCase() === "true";
+  const baseDir  = String(process.env.KM_FTP_DIR || process.env.FTP_BASE_DIR || "/kilometrage")
+    .trim().replace(/\/+$/, "");
+  return { host, user, password, port, secure, baseDir };
+}
+
+function kmSanitizeAgence(code) {
+  return String(code || "INCONNU")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9_\-]/gi, "_")
+    .toUpperCase();
+}
+
+function kmMonthPath(codeAgence, yearMonth) {
+  const { baseDir } = kmFtpConfig();
+  const dir = kmSanitizeAgence(codeAgence);
+  return pathModule.posix.join(baseDir, dir, `${yearMonth}.json`);
+}
+
+function kmTmpFile() {
+  return pathModule.join(os.tmpdir(), `km_admin_${crypto.randomBytes(6).toString("hex")}.tmp`);
+}
+
+async function withKmFtp(fn) {
+  const { host, user, password, port, secure } = kmFtpConfig();
+  const client = new ftp.Client(20000);
+  client.ftp.verbose = false;
+  try {
+    await client.access({ host, user, password, port, secure, secureOptions: { rejectUnauthorized: false } });
+    return await fn(client);
+  } finally {
+    client.close();
+  }
+}
+
+async function kmReadJson(remotePath) {
+  const tmp = kmTmpFile();
+  try {
+    await withKmFtp(async (client) => {
+      await client.downloadTo(tmp, remotePath);
+    });
+    const text = fs.readFileSync(tmp, "utf-8");
+    return JSON.parse(text);
+  } catch (e) {
+    if (String(e?.code || e?.message || "").includes("550")) return null; // file not found
+    throw e;
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
+}
+
+async function kmWriteJson(remotePath, data) {
+  const tmp = kmTmpFile();
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf-8");
+    await withKmFtp(async (client) => {
+      // ensure directory exists
+      const dir = pathModule.posix.dirname(remotePath);
+      await client.ensureDir(dir);
+      await client.uploadFrom(tmp, remotePath);
+    });
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
+}
+
+// List agence dirs available in KM base dir
+async function kmListAgences() {
+  const { baseDir } = kmFtpConfig();
+  return withKmFtp(async (client) => {
+    const list = await client.list(baseDir);
+    return list
+      .filter(e => e.type === 2 /* directory */)
+      .map(e => e.name)
+      .filter(n => n !== "." && n !== "..");
+  });
+}
+
+// List YYYY-MM available for an agence (from filenames like 2026-02.json)
+async function kmListMonths(codeAgence) {
+  const { baseDir } = kmFtpConfig();
+  const dir = pathModule.posix.join(baseDir, kmSanitizeAgence(codeAgence));
+  return withKmFtp(async (client) => {
+    let list;
+    try {
+      list = await client.list(dir);
+    } catch { return []; }
+    return list
+      .filter(e => e.type === 1 /* file */ && e.name.match(/^\d{4}-\d{2}\.json$/))
+      .map(e => e.name.replace(".json", ""))
+      .sort();
+  });
+}
+// ─── fin helpers km ─────────────────────────────────────────────────────────
+
 function htmlPage(title, body) {
   return `<!doctype html>
 <html lang="fr">
@@ -82,18 +305,7 @@ td{vertical-align:top;padding:8px}
 	input,select,textarea{box-sizing:border-box}
 td{overflow:hidden}
 th:last-child, td:last-child{width:140px; white-space:nowrap}
-  
-    .stickyBar{
-      position: sticky;
-      bottom: 0;
-      margin-top: 16px;
-      padding-top: 12px;
-      background: white;
-      display:flex;
-      justify-content:flex-end;
-      border-top: 1px solid #e5e7eb;
-    }
-</style>
+  </style>
 </head>
 <body>
   <div class="wrap">
@@ -103,8 +315,8 @@ th:last-child, td:last-child{width:140px; white-space:nowrap}
 </html>`;
 }
 
-function editorPage(baseUrl, csrfToken, editorRegistry) {
-  const registryJson = JSON.stringify(editorRegistry);
+function editorPage(baseUrl, csrfToken) {
+  const registryJson = JSON.stringify(getRegistryWithExtras());
   return htmlPage("Editeur JSON", `
   <div class="card">
     <h1>Editeur JSON</h1>
@@ -122,13 +334,13 @@ function editorPage(baseUrl, csrfToken, editorRegistry) {
     <div class="row" style="margin-top:10px">
       <div class="muted">Dernière modification: <span id="lastMod">—</span></div>
     </div>
+    <div class="row" style="margin-top:14px; justify-content:flex-end">
+      <button class="btn" id="btnSave" type="button">Enregistrer</button>
+    </div>
     <form method="POST" action="${baseUrl}/logout" style="margin-top:12px">
       <input type="hidden" name="csrfToken" value="${csrfToken}"/>
       <button class="btn danger" type="submit">Logout</button>
     </form>
-    <div class="stickyBar">
-      <button class="btn" id="btnSave" type="button">Enregistrer</button>
-    </div>
     <div class="msg" id="msg"></div>
   </div>
   <script>
@@ -151,17 +363,17 @@ function editorPage(baseUrl, csrfToken, editorRegistry) {
     });
 
     const schemas = {
+
       kilometrage_params: { type: "table", columns: [
         { key: "agence", label: "Agence" },
-        { key: "codeAgence", label: "Code agence" },
+        { key: "codeAgence", label: "Code Agence" },
         { key: "tournee", label: "Tournée" },
-        { key: "codeTournee", label: "Code tournée" },
-        { key: "transporteur", label: "Transporteur" },
-        { key: "codeTransporteur", label: "Code transporteur" },
+        { key: "codeTournee", label: "Code Tournée" },
+        { key: "transporteur", label: "Transporteur / Livreur" },
+        { key: "codeTransporteur", label: "Code Transporteur" },
         { key: "id", label: "ID" },
-        { key: "dernierRemplacement", label: "Dernier remplacement" }
+        { key: "dernierRemplacement", label: "Dernier remplacement (ISO)" }
       ]},
-
       links: { type: "table", columns: [
         { key: "label", label: "Label" },
         { key: "url", label: "URL" }
@@ -284,6 +496,7 @@ function editorPage(baseUrl, csrfToken, editorRegistry) {
           ]
         }
       ]}
+      kilometrage_saisies: { type: "km_saisies" },
     };
 
     function setMsg(text, ok) {
@@ -592,6 +805,494 @@ td.appendChild(input);
         setMsg(String(e.message || e), false);
       }
     });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION SPÉCIALE : Éditeur Kilométrage
+    // ═══════════════════════════════════════════════════════════════════════
+    const kmSection = document.createElement("div");
+    kmSection.id = "kmSection";
+    kmSection.style.display = "none";
+    kmSection.innerHTML = `
+      <div style="margin-top:18px">
+        <h2 style="font-size:16px;margin:0 0 14px;color:#1e3a5f">📊 Données Kilométrage</h2>
+
+        <!-- Filtres -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px;padding:14px;background:#f0f4ff;border-radius:12px;border:1px solid #c7d7f4">
+          <div>
+            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px">📍 Magasin</label>
+            <select id="kmAgence" style="width:100%"></select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px">📅 Année</label>
+            <select id="kmYear" style="width:100%"></select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px">🗓️ Mois</label>
+            <select id="kmMonth" style="width:100%">
+              <option value="">— Tous —</option>
+              <option value="01">Janvier</option><option value="02">Février</option>
+              <option value="03">Mars</option><option value="04">Avril</option>
+              <option value="05">Mai</option><option value="06">Juin</option>
+              <option value="07">Juillet</option><option value="08">Août</option>
+              <option value="09">Septembre</option><option value="10">Octobre</option>
+              <option value="11">Novembre</option><option value="12">Décembre</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px">🚚 Tournée</label>
+            <select id="kmTournee" style="width:100%"><option value="">— Toutes —</option></select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px">📆 Jour</label>
+            <input id="kmDay" type="number" min="1" max="31" placeholder="1-31" style="width:100%">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <button class="btn" id="btnKmLoad" type="button">🔍 Charger</button>
+          <button class="btn secondary" id="btnKmRefresh" type="button" style="display:none">🔄 Réinitialiser filtres</button>
+          <span id="kmMsg" style="font-weight:700;font-size:13px"></span>
+        </div>
+
+        <div id="kmResults" style="display:none">
+          <!-- Stats bar -->
+          <div id="kmStats" style="padding:10px 14px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;margin-bottom:12px;font-size:13px;font-weight:600;color:#065f46"></div>
+
+          <!-- Table -->
+          <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:12px">
+            <table id="kmTable" style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="background:#1e3a5f;color:#fff">
+                  <th style="padding:10px 8px;text-align:left;white-space:nowrap">Date</th>
+                  <th style="padding:10px 8px;text-align:left;white-space:nowrap">Tournée</th>
+                  <th style="padding:10px 8px;text-align:left;white-space:nowrap">Chauffeur</th>
+                  <th style="padding:10px 8px;text-align:left;white-space:nowrap">Type</th>
+                  <th style="padding:10px 8px;text-align:right;white-space:nowrap">8h</th>
+                  <th style="padding:10px 8px;text-align:right;white-space:nowrap">12h</th>
+                  <th style="padding:10px 8px;text-align:right;white-space:nowrap">14h</th>
+                  <th style="padding:10px 8px;text-align:right;white-space:nowrap">18h</th>
+                  <th style="padding:10px 8px;text-align:left">Commentaire</th>
+                  <th style="padding:10px 8px;text-align:center;white-space:nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="kmTbody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn" id="btnKmSave" type="button">💾 Enregistrer les modifications</button>
+          </div>
+        </div>
+
+        <!-- Modal edit -->
+        <div id="kmModal" style="display:none;position:fixed;inset:0;background:#0008;z-index:9999;align-items:center;justify-content:center">
+          <div style="background:#fff;border-radius:14px;padding:22px;width:min(480px,94vw);max-height:90vh;overflow:auto;box-shadow:0 20px 60px #0004">
+            <h3 style="margin:0 0 16px;color:#1e3a5f;font-size:15px" id="kmModalTitle">Modifier le relevé</h3>
+            <div id="kmModalBody"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+              <button class="btn secondary" id="btnKmModalCancel" type="button">Annuler</button>
+              <button class="btn" id="btnKmModalSave" type="button">💾 Appliquer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.querySelector(".wrap").appendChild(kmSection);
+
+    // ── State ──
+    let kmAllData   = {}; // { "GLEIZE/2026-02": [...records] }
+    let kmAgences   = [];
+    let kmMonthsMap = {}; // { "GLEIZE": ["2026-01","2026-02",...] }
+    let kmEditTarget = null; // { agence, yearMonth, recordIdx }
+
+    function setKmMsg(t, ok) {
+      const el = document.getElementById("kmMsg");
+      if (el) { el.textContent = t || ""; el.style.color = ok ? "green" : "crimson"; }
+    }
+
+    // Populate agence selector and year from available months
+    async function kmInitSelectors() {
+      const agenceSel = document.getElementById("kmAgence");
+      const yearSel   = document.getElementById("kmYear");
+      setKmMsg("Chargement des magasins...", true);
+      try {
+        const r = await fetch(\`\${BASE}/api/km-agences\`, { cache: "no-store" });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error);
+
+        kmAgences = j.agences;
+        kmMonthsMap = j.monthsMap;
+
+        agenceSel.innerHTML = "";
+        kmAgences.forEach(ag => {
+          const o = document.createElement("option");
+          o.value = ag;
+          o.textContent = ag;
+          agenceSel.appendChild(o);
+        });
+
+        // Build year list from all months
+        const years = new Set();
+        Object.values(j.monthsMap).forEach(months => {
+          months.forEach(m => years.add(m.slice(0,4)));
+        });
+        yearSel.innerHTML = '<option value="">— Toutes —</option>';
+        [...years].sort().reverse().forEach(y => {
+          const o = document.createElement("option");
+          o.value = y; o.textContent = y;
+          yearSel.appendChild(o);
+        });
+        // Select current year by default
+        const curYear = new String(new Date().getFullYear());
+        [...yearSel.options].forEach(o => { if (o.value === curYear) o.selected = true; });
+
+        setKmMsg("", true);
+      } catch(e) {
+        setKmMsg("Erreur chargement magasins: " + e.message, false);
+      }
+    }
+
+    // Load records for the selected agence + filter
+    document.getElementById("btnKmLoad").addEventListener("click", async () => {
+      const agence  = document.getElementById("kmAgence").value;
+      const year    = document.getElementById("kmYear").value;
+      const month   = document.getElementById("kmMonth").value;
+      const tournee = document.getElementById("kmTournee").value;
+      const day     = document.getElementById("kmDay").value.trim();
+
+      if (!agence) { setKmMsg("Sélectionnez un magasin.", false); return; }
+
+      setKmMsg("Chargement...", true);
+      document.getElementById("kmResults").style.display = "none";
+
+      try {
+        // Determine which months to load
+        const allMonths = kmMonthsMap[agence] || [];
+        let monthsToLoad = allMonths;
+        if (year && month) monthsToLoad = [`${year}-${month}`].filter(m => allMonths.includes(m));
+        else if (year)  monthsToLoad = allMonths.filter(m => m.startsWith(year));
+        else if (month) monthsToLoad = allMonths.filter(m => m.endsWith(`-${month}`));
+
+        if (monthsToLoad.length === 0) {
+          setKmMsg("Aucun fichier trouvé pour ces filtres.", false);
+          return;
+        }
+
+        // Load all needed months
+        const fetches = monthsToLoad.map(ym =>
+          fetch(\`\${BASE}/api/km-data?agence=\${encodeURIComponent(agence)}&yearMonth=\${ym}\`, { cache: "no-store" })
+            .then(r => r.json())
+            .then(j => j.ok ? j.records : [])
+            .catch(() => [])
+        );
+        const results = await Promise.all(fetches);
+        // Merge into kmAllData
+        monthsToLoad.forEach((ym, i) => {
+          kmAllData[\`\${agence}/\${ym}\`] = results[i] || [];
+        });
+
+        // Build unified list
+        let allRecs = monthsToLoad.flatMap(ym => (kmAllData[\`\${agence}/\${ym}\`] || []).map(r => ({ ...r, _ym: ym })));
+
+        // Apply filters
+        if (tournee) allRecs = allRecs.filter(r => (r.tournee || "") === tournee);
+        if (day)     allRecs = allRecs.filter(r => {
+          const d = parseInt(String(r.date || "").slice(8,10), 10);
+          return d === parseInt(day, 10);
+        });
+
+        // Update tournée selector
+        const tourneeSet = new Set(monthsToLoad.flatMap(ym => (kmAllData[\`\${agence}/\${ym}\`] || []).map(r => r.tournee || "")));
+        const tourneeSel = document.getElementById("kmTournee");
+        const prevTournee = tourneeSel.value;
+        tourneeSel.innerHTML = '<option value="">— Toutes —</option>';
+        [...tourneeSet].filter(Boolean).sort().forEach(t => {
+          const o = document.createElement("option");
+          o.value = t; o.textContent = t;
+          if (t === prevTournee) o.selected = true;
+          tourneeSel.appendChild(o);
+        });
+
+        // Group by date+tournee for display
+        kmRenderTable(allRecs, agence);
+        document.getElementById("btnKmRefresh").style.display = "";
+        setKmMsg(`${allRecs.length} relevé(s) chargé(s).`, true);
+        document.getElementById("kmResults").style.display = "";
+      } catch(e) {
+        setKmMsg("Erreur: " + e.message, false);
+      }
+    });
+
+    document.getElementById("btnKmRefresh").addEventListener("click", () => {
+      document.getElementById("kmTournee").value = "";
+      document.getElementById("kmDay").value = "";
+      document.getElementById("kmResults").style.display = "none";
+      setKmMsg("", true);
+    });
+
+    // ── Render table ──────────────────────────────────────────────────────
+    function kmFmtDate(d) {
+      if (!d) return "—";
+      const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
+    }
+
+    function kmRenderTable(records, agence) {
+      const tbody = document.getElementById("kmTbody");
+      const stats = document.getElementById("kmStats");
+      tbody.innerHTML = "";
+
+      if (records.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="padding:20px;text-align:center;color:#6b7280">Aucune donnée pour ces filtres.</td></tr>';
+        stats.textContent = "Aucun relevé.";
+        return;
+      }
+
+      // Group by date + tournee
+      const grouped = {};
+      records.forEach(r => {
+        const key = `${r.date}||${r.tournee}`;
+        if (!grouped[key]) grouped[key] = { date: r.date, tournee: r.tournee, chauffeur: r.chauffeur, type: r.type, _ym: r._ym, horaires: {} };
+        if (r.horaire) grouped[key].horaires[r.horaire] = r;
+        else if (r.type === "absence") grouped[key].absence = r;
+      });
+
+      const keys = Object.keys(grouped).sort((a, b) => a < b ? -1 : 1);
+      let totalReleves = 0, totalAbsences = 0;
+
+      keys.forEach(k => {
+        const g = grouped[k];
+        const isAbsence = g.type === "absence" || !!g.absence;
+        if (isAbsence) totalAbsences++; else totalReleves++;
+
+        const tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid #f0f0f0";
+        tr.style.background = isAbsence ? "#fff7ed" : "#fff";
+
+        // Helper: km cell
+        function kmCell(horaire) {
+          const rec = g.horaires[horaire];
+          const km = rec ? rec.km : null;
+          return `<td style="padding:8px;text-align:right;min-width:80px">
+            ${km !== null && km !== undefined ? `<span style="font-weight:600">${km.toLocaleString("fr-FR")}</span>` : '<span style="color:#d1d5db">—</span>'}
+          </td>`;
+        }
+
+        tr.innerHTML = `
+          <td style="padding:8px;white-space:nowrap;font-weight:600">${kmFmtDate(g.date)}</td>
+          <td style="padding:8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${g.tournee || ""}">${g.tournee || "—"}</td>
+          <td style="padding:8px;white-space:nowrap;color:#4b5563">${g.chauffeur || "—"}</td>
+          <td style="padding:8px;white-space:nowrap">
+            ${isAbsence
+              ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">ABSENT</span>'
+              : '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">Relevé</span>'}
+          </td>
+          ${kmCell("8h")}${kmCell("12h")}${kmCell("14h")}${kmCell("18h")}
+          <td style="padding:8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:#6b7280">
+            ${g.horaires["8h"]?.commentaire || g.absence?.note || ""}
+          </td>
+          <td style="padding:8px;text-align:center;white-space:nowrap">
+            <button type="button" class="btn" onclick="kmEditGroup(${JSON.stringify(JSON.stringify(g))})"
+              style="padding:5px 10px;font-size:11px;margin-right:4px">✏️ Modifier</button>
+            <button type="button" class="btn danger" onclick="kmDeleteGroup(${JSON.stringify(JSON.stringify(g))})"
+              style="padding:5px 10px;font-size:11px">🗑️ Jour</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      stats.innerHTML = `<b>${keys.length}</b> ligne(s) • <b>${totalReleves}</b> relevé(s) • <b>${totalAbsences}</b> absence(s) • Magasin : <b>${agence}</b>`;
+    }
+
+    // ── Edit a group (date+tournee) ────────────────────────────────────────
+    window.kmEditGroup = function(gJson) {
+      const g = JSON.parse(gJson);
+      const agence = document.getElementById("kmAgence").value;
+      const modal = document.getElementById("kmModal");
+      const body  = document.getElementById("kmModalBody");
+      document.getElementById("kmModalTitle").textContent = `Modifier — ${kmFmtDate(g.date)} — ${g.tournee}`;
+      kmEditTarget = { g, agence };
+
+      if (g.type === "absence" || g.absence) {
+        const note = g.absence?.note || "";
+        body.innerHTML = `
+          <div style="background:#fff7ed;border:1px solid #fbbf24;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">
+            ⚠️ Ce relevé est une <b>absence</b>.
+          </div>
+          <label style="font-weight:700;font-size:13px;display:block;margin-bottom:4px">Note / Commentaire</label>
+          <textarea id="kmEditNote" rows="3" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px;font-size:13px">${note}</textarea>
+        `;
+      } else {
+        const horaires = ["8h","12h","14h","18h"];
+        let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+        horaires.forEach(h => {
+          const rec = g.horaires[h];
+          const km  = rec ? rec.km : "";
+          const com = rec ? (rec.commentaire || "") : "";
+          html += `
+            <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:10px;padding:12px">
+              <div style="font-weight:800;font-size:13px;color:#1e3a5f;margin-bottom:8px">⏰ ${h}</div>
+              <label style="font-size:11px;font-weight:700;display:block;margin-bottom:2px">Kilométrage</label>
+              <input id="kmKm_${h}" type="number" value="${km}" placeholder="—"
+                style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font-size:13px;margin-bottom:6px">
+              <label style="font-size:11px;font-weight:700;display:block;margin-bottom:2px">Commentaire</label>
+              <input id="kmCom_${h}" type="text" value="${com}" placeholder=""
+                style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:6px;font-size:13px">
+            </div>
+          `;
+        });
+        html += `</div>`;
+        body.innerHTML = html;
+      }
+
+      modal.style.display = "flex";
+    };
+
+    document.getElementById("btnKmModalCancel").addEventListener("click", () => {
+      document.getElementById("kmModal").style.display = "none";
+      kmEditTarget = null;
+    });
+    document.getElementById("kmModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) {
+        document.getElementById("kmModal").style.display = "none";
+        kmEditTarget = null;
+      }
+    });
+
+    document.getElementById("btnKmModalSave").addEventListener("click", async () => {
+      if (!kmEditTarget) return;
+      const { g, agence } = kmEditTarget;
+      const ym = g._ym;
+      const key = `${agence}/${ym}`;
+      let records = (kmAllData[key] || []).map(r => ({...r}));
+
+      setKmMsg("Enregistrement...", true);
+      try {
+        if (g.type === "absence" || g.absence) {
+          // Update note for absence record matching date+tournee
+          const note = document.getElementById("kmEditNote")?.value || "";
+          records = records.map(r => {
+            if (r.date === g.date && r.tournee === g.tournee && r.type === "absence") {
+              return { ...r, note };
+            }
+            return r;
+          });
+        } else {
+          const horaires = ["8h","12h","14h","18h"];
+          horaires.forEach(h => {
+            const kmVal = document.getElementById(`kmKm_${h}`)?.value;
+            const com   = document.getElementById(`kmCom_${h}`)?.value || "";
+            const existingIdx = records.findIndex(r => r.date === g.date && r.tournee === g.tournee && r.horaire === h);
+            if (kmVal !== "" && kmVal !== undefined && kmVal !== null) {
+              const km = parseInt(kmVal, 10);
+              if (!isNaN(km)) {
+                if (existingIdx >= 0) {
+                  records[existingIdx] = { ...records[existingIdx], km, commentaire: com };
+                } else {
+                  // Add new record for this horaire
+                  const template = g.horaires[Object.keys(g.horaires)[0]];
+                  records.push({
+                    type: "releve", id: template?.id || null,
+                    agence: template?.agence || agence, codeAgence: template?.codeAgence || agence,
+                    tournee: g.tournee, codeTournee: template?.codeTournee || "",
+                    chauffeur: g.chauffeur, codeChauffeur: template?.codeChauffeur || g.chauffeur,
+                    date: g.date, km, horaire: h, commentaire: com, note: "",
+                    createdAt: new Date().toISOString()
+                  });
+                }
+              }
+            } else if (kmVal === "" && existingIdx >= 0) {
+              // Empty field = remove this horaire record
+              records.splice(existingIdx, 1);
+            }
+          });
+        }
+
+        // Save
+        const resp = await fetch(\`\${BASE}/api/km-save\`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-csrf-token": CSRF },
+          body: JSON.stringify({ agence, yearMonth: ym, records })
+        });
+        const j = await resp.json();
+        if (!j.ok) throw new Error(j.error || "Erreur sauvegarde");
+
+        kmAllData[key] = records;
+        setKmMsg("Enregistré ✓", true);
+        document.getElementById("kmModal").style.display = "none";
+        kmEditTarget = null;
+        // Reload display
+        document.getElementById("btnKmLoad").click();
+      } catch(e) {
+        setKmMsg("Erreur: " + e.message, false);
+      }
+    });
+
+    // ── Delete an entire day+tournee group ────────────────────────────────
+    window.kmDeleteGroup = function(gJson) {
+      const g = JSON.parse(gJson);
+      const agence = document.getElementById("kmAgence").value;
+      const label = `${kmFmtDate(g.date)} — ${g.tournee}`;
+      if (!confirm(\`⚠️ Supprimer TOUTES les données du :\n\n\${label}\n\nCette action est irréversible.\`)) return;
+
+      const ym  = g._ym;
+      const key = \`\${agence}/\${ym}\`;
+      let records = (kmAllData[key] || []).map(r => ({...r}));
+      // Remove all records matching date + tournee
+      records = records.filter(r => !(r.date === g.date && r.tournee === g.tournee));
+      kmAllData[key] = records;
+
+      // Save immediately
+      setKmMsg("Suppression...", true);
+      fetch(\`\${BASE}/api/km-save\`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-csrf-token": CSRF },
+        body: JSON.stringify({ agence, yearMonth: ym, records })
+      }).then(r => r.json()).then(j => {
+        if (!j.ok) throw new Error(j.error);
+        setKmMsg("Supprimé ✓", true);
+        document.getElementById("btnKmLoad").click();
+      }).catch(e => setKmMsg("Erreur: " + e.message, false));
+    };
+
+    // ── Bulk save (for manual save button) ──────────────────────────────
+    document.getElementById("btnKmSave").addEventListener("click", async () => {
+      setKmMsg("Enregistrement...", true);
+      let ok = 0, err = 0;
+      for (const [key, records] of Object.entries(kmAllData)) {
+        const [agence, yearMonth] = key.split("/");
+        try {
+          const resp = await fetch(\`\${BASE}/api/km-save\`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-csrf-token": CSRF },
+            body: JSON.stringify({ agence, yearMonth, records })
+          });
+          const j = await resp.json();
+          if (!j.ok) throw new Error(j.error);
+          ok++;
+        } catch(e) { err++; }
+      }
+      setKmMsg(err ? \`Enregistré avec \${err} erreur(s)\` : \`Enregistré (\${ok} fichier(s)) ✓\`, err === 0);
+    });
+
+    // ── Show/hide km section based on key selection ──────────────────────
+    const _origBtnLoad = document.getElementById("btnLoad");
+    const _origEditorArea = document.getElementById("editorArea");
+    const _origJsonArea   = document.querySelector("details");
+    const _origSaveBar    = _origBtnLoad?.closest(".card")?.querySelector("#btnSave")?.parentElement;
+
+    sel.addEventListener("change", () => {
+      const entry = registry.find(r => r.key === sel.value);
+      const isKm = entry?._special === "km-editor";
+      kmSection.style.display = isKm ? "" : "none";
+      if (_origEditorArea) _origEditorArea.style.display = isKm ? "none" : "";
+      const details = document.querySelector("details");
+      if (details) details.style.display = isKm ? "none" : "";
+      const saveBtnRow = document.querySelector("#btnSave")?.closest(".row");
+      if (saveBtnRow) saveBtnRow.style.display = isKm ? "none" : "";
+      const loadBtnRow = document.querySelector("#btnLoad")?.closest(".row");
+      if (loadBtnRow) loadBtnRow.style.display = isKm ? "none" : "";
+      if (isKm) kmInitSelectors();
+    });
   </script>
   `);
 }
@@ -651,23 +1352,6 @@ export default function createAdminEditorRouter() {
     return router;
   }
 
-
-  // Ajout: édition du fichier FTP /service/kilometrage/params.json (liste des tournées/transporteurs)
-  const EXTRA_REGISTRY = [
-    {
-      key: "kilometrage-params",
-      label: "Paramètres Kilométrage",
-      page: "kilometrage",
-      filename: "kilometrage/params.json",
-      editor: "kilometrage_params"
-    }
-  ];
-  const editorRegistry = [...registry, ...EXTRA_REGISTRY];
-
-  function getEntryByKey(key) {
-    return editorRegistry.find(e => e.key === key) || null;
-  }
-
   const limiter = rateLimit({
     windowMs: 5 * 60 * 1000,
     max: 5,
@@ -681,7 +1365,7 @@ export default function createAdminEditorRouter() {
     if (!req.session?.adminAuthed) return res.redirect(`/${basePath}/login`);
     const token = ensureCsrf(req);
     res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(editorPage(`/${basePath}`, token, editorRegistry));
+    return res.status(200).send(editorPage(`/${basePath}`, token));
   });
 
   router.get(`/${basePath}/setup`, limiter, async (req, res) => {
@@ -763,7 +1447,7 @@ export default function createAdminEditorRouter() {
 
   router.get(`/${basePath}/api/load`, requireAuth, async (req, res) => {
     const key = String(req.query?.key || "").trim();
-    const entry = getEntryByKey(key);
+    const entry = resolveJsonEntry(key);
     if (!entry) return res.status(404).json({ ok: false, error: "unknown_key" });
     try {
       let data = await ftpStorage.readJson(entry.filename);
@@ -790,9 +1474,69 @@ export default function createAdminEditorRouter() {
     }
   });
 
+  // ── Km API routes ──────────────────────────────────────────────────────
+
+  router.get(`/${basePath}/api/km-agences`, requireAuth, async (req, res) => {
+    try {
+      const agences = await kmListAgences();
+      const monthsMap = {};
+      for (const ag of agences) {
+        try {
+          monthsMap[ag] = await kmListMonths(ag);
+        } catch { monthsMap[ag] = []; }
+      }
+      res.setHeader("Cache-Control", "no-store");
+      return res.json({ ok: true, agences, monthsMap });
+    } catch(e) {
+      return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    }
+  });
+
+  router.get(`/${basePath}/api/km-data`, requireAuth, async (req, res) => {
+    const agence    = String(req.query.agence    || "").trim();
+    const yearMonth = String(req.query.yearMonth || "").trim();
+    if (!agence || !yearMonth) {
+      return res.status(400).json({ ok: false, error: "agence et yearMonth requis" });
+    }
+    try {
+      const remote  = kmMonthPath(agence, yearMonth);
+      const data    = await kmReadJson(remote);
+      const records = Array.isArray(data) ? data : [];
+      res.setHeader("Cache-Control", "no-store");
+      return res.json({ ok: true, records, agence, yearMonth });
+    } catch(e) {
+      return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    }
+  });
+
+  router.post(`/${basePath}/api/km-save`, requireAuth, requireCsrf, express.json({ limit: "4mb" }), async (req, res) => {
+    const agence    = String(req.body?.agence    || "").trim();
+    const yearMonth = String(req.body?.yearMonth || "").trim();
+    const records   = req.body?.records;
+    if (!agence || !yearMonth) {
+      return res.status(400).json({ ok: false, error: "agence et yearMonth requis" });
+    }
+    if (!Array.isArray(records)) {
+      return res.status(400).json({ ok: false, error: "records doit être un tableau" });
+    }
+    // Validate yearMonth format
+    if (!/^\d{4}-\d{2}$/.test(yearMonth)) {
+      return res.status(400).json({ ok: false, error: "yearMonth format invalide (YYYY-MM)" });
+    }
+    try {
+      const remote = kmMonthPath(agence, yearMonth);
+      await kmWriteJson(remote, records);
+      return res.json({ ok: true, agence, yearMonth, count: records.length });
+    } catch(e) {
+      return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    }
+  });
+
+  // ── Fin km API routes ───────────────────────────────────────────────────
+
   router.post(`/${basePath}/api/save`, requireAuth, requireCsrf, express.json({ limit: "2mb" }), async (req, res) => {
     const key = String(req.body?.key || "").trim();
-    const entry = getEntryByKey(key);
+    const entry = resolveJsonEntry(key);
     if (!entry) return res.status(404).json({ ok: false, error: "unknown_key" });
     const data = req.body?.data;
     if (data === undefined) {
