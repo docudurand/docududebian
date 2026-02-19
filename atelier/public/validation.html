@@ -118,7 +118,7 @@
 <body>
   <div class="card">
     <div class="logo">
-      <img src="https://i.postimg.cc/CxLtQ1xJ/logodurand.png"
+      <img src="https://raw.githubusercontent.com/docudurand/docudurpho/main/logodurand.png"
            alt="Logo Durand Services" />
     </div>
     <h1>Validation de réception</h1>
@@ -174,15 +174,13 @@
       '<div class="msg err"><strong>Numéro de dossier manquant.</strong><br/>' +
       'Le lien utilisé ne contient pas de numéro de dossier.</div>';
   } else {
-    const normalized = normalizeNo(noParam) || noParam;
-	loadCase(normalized);
-
+    loadCase(noParam);
   }
 
   async function loadCase(no){
     $content.innerHTML =
       '<span class="loader" aria-hidden="true"></span>' +
-      '<span class="muted">Chargement du dossier ' + esc(String(no).padStart(5,"0")) + '…</span>';
+      '<span class="muted">Chargement du dossier ' + esc(no) + '…</span>';
 
     try{
       const resp = await fetch(API_BASE + "/atelier/api/cases/" + encodeURIComponent(no));

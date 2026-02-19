@@ -573,7 +573,7 @@
     const payload = {
       meta: {
         titre: service,
-        logoUrl: "https://i.postimg.cc/CxLtQ1xJ/logodurand.png",
+        logoUrl: "https://raw.githubusercontent.com/docudurand/docudurpho/main/logodurand.png",
         dateGeneration: new Date().toISOString()
       },
       header: {
@@ -625,7 +625,7 @@
     }
 
     const base = location.origin.replace(/\/$/,"");
-    const validationUrl = `${base}/atelier/public/validation.html?no=${encodeURIComponent(no)}`;
+    const validationUrl = `${base}/atelier/validation.html?no=${encodeURIComponent(no)}`;
     LAST_VALIDATION_URL = validationUrl;
 
     const payloadForPrint = { ...payload, no };

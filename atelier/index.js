@@ -22,11 +22,23 @@ router.get("/config.js", (_req, res) => {
   res.setHeader("Content-Type", "application/javascript; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
 
+  const PASS_STE = process.env.ATELIER_SUIVI_PASS_STE || "";
+  const PASS_BG = process.env.ATELIER_SUIVI_PASS_BG || "";
+  const PASS_LIMITED = process.env.ATELIER_SUIVI_PASS_LIMITED || "";
+  const PASS_CHASSE = process.env.ATELIER_SUIVI_PASS_CHASSE || "";
+  const PASS_ADMIN = process.env.ATELIER_SUIVI_PASS_ADMIN || "";
+  const SUIVI_ADMIN = process.env.ATELIER_SUIVI_ADMIN || "";
   const BASE_URL = process.env.BASE_URL || "";
   const GS_URL = BASE_URL ? `${BASE_URL}/atelier/api/config` : "/atelier/api/config";
 
   res.send(
     `window.__ATELIER_CFG = {
+      ATELIER_SUIVI_PASS_STE: ${JSON.stringify(PASS_STE)},
+      ATELIER_SUIVI_PASS_BG: ${JSON.stringify(PASS_BG)},
+      ATELIER_SUIVI_PASS_LIMITED: ${JSON.stringify(PASS_LIMITED)},
+      ATELIER_SUIVI_PASS_CHASSE: ${JSON.stringify(PASS_CHASSE)},
+      ATELIER_SUIVI_PASS_ADMIN: ${JSON.stringify(PASS_ADMIN)},
+      ATELIER_SUIVI_ADMIN: ${JSON.stringify(SUIVI_ADMIN)},
       GS_URL: ${JSON.stringify(GS_URL)}
     };`
   );
