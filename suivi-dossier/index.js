@@ -19,6 +19,7 @@ const SUIVI_PASS_BG      = process.env.ATELIER_SUIVI_PASS_BG      || "";
 const SUIVI_PASS_LIMITED = process.env.ATELIER_SUIVI_PASS_LIMITED || "";
 const SUIVI_PASS_CHASSE = process.env.ATELIER_SUIVI_PASS_CHASSE || "";
 const SUIVI_PASS_ADMIN = process.env.ATELIER_SUIVI_PASS_ADMIN || "";
+const SUIVI_ADMIN      = process.env.ATELIER_SUIVI_ADMIN       || "";
 
 const suiviLoginLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -32,8 +33,9 @@ function resolveSuiviRole(password) {
   const pw = String(password || "").trim();
   if (!pw) return null;
 
-  if (SUIVI_PASS_STE && pw === SUIVI_PASS_STE) return "STE";
-  if (SUIVI_PASS_BG && pw === SUIVI_PASS_BG) return "BG";
+  if (SUIVI_ADMIN      && pw === SUIVI_ADMIN)      return "SUIVI_ADMIN";
+  if (SUIVI_PASS_STE   && pw === SUIVI_PASS_STE)   return "STE";
+  if (SUIVI_PASS_BG    && pw === SUIVI_PASS_BG)    return "BG";
   if (SUIVI_PASS_CHASSE && pw === SUIVI_PASS_CHASSE) return "CHASSE";
   if (SUIVI_PASS_LIMITED && pw === SUIVI_PASS_LIMITED) return "LIMITED";
   if (SUIVI_PASS_ADMIN && pw === SUIVI_PASS_ADMIN) return "ADMIN";
@@ -42,10 +44,14 @@ function resolveSuiviRole(password) {
 
 function asSessionPayload(role) {
   const r = String(role || "").toUpperCase();
+  if (r === "SUIVI_ADMIN") {
+    return { role: r, isLimited: false, viewMode: "ALL", isAdmin: true };
+  }
   return {
     role: r,
     isLimited: r === "LIMITED",
     viewMode: r === "LIMITED" ? "ALL" : r,
+    isAdmin: false,
   };
 }
 
@@ -73,7 +79,7 @@ router.get("/config.js", (_req, res) => {
 
 router.post("/api/login", suiviLoginLimiter, (req, res) => {
   const hasAnyPassword = Boolean(
-    SUIVI_PASS_STE || SUIVI_PASS_BG || SUIVI_PASS_LIMITED || SUIVI_PASS_CHASSE || SUIVI_PASS_ADMIN
+    SUIVI_PASS_STE || SUIVI_PASS_BG || SUIVI_PASS_LIMITED || SUIVI_PASS_CHASSE || SUIVI_PASS_ADMIN || SUIVI_ADMIN
   );
   if (!hasAnyPassword) {
     return res.status(503).json({ success: false, message: "suivi_password_not_configured" });
@@ -104,7 +110,7 @@ router.post("/api/login", suiviLoginLimiter, (req, res) => {
 router.get("/api/session", (req, res) => {
   const auth = req.session?.atelierSuiviAuth || null;
   if (!auth) return res.status(401).json({ success: false });
-  return res.json({ success: true, role: auth.role, isLimited: !!auth.isLimited, viewMode: auth.viewMode || "ALL" });
+  return res.json({ success: true, role: auth.role, isLimited: !!auth.isLimited, viewMode: auth.viewMode || "ALL", isAdmin: !!auth.isAdmin });
 });
 
 router.post("/api/logout", (req, res) => {

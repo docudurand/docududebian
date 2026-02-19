@@ -62,7 +62,7 @@ function getSuiviAuth(req) {
 function canReadCase(auth, caseData) {
   if (!auth) return false;
   if (auth.isLimited) return true;
-  if (auth.viewMode === "ADMIN" || auth.viewMode === "ALL") return true;
+  if (auth.viewMode === "ADMIN" || auth.viewMode === "ALL" || auth.role === "SUIVI_ADMIN") return true;
   const allowed = VIEW_MODE_SERVICES[auth.viewMode];
   if (!allowed) return false;
   return allowed.has(normalizeText(resolveCaseService(caseData)));
@@ -84,6 +84,18 @@ function requireSuiviWrite(req, res, next) {
   }
   if (auth.isLimited) {
     return res.status(403).json({ success: false, error: "read_only" });
+  }
+  req.suiviAuth = auth;
+  return next();
+}
+
+function requireSuiviAdmin(req, res, next) {
+  const auth = getSuiviAuth(req);
+  if (!auth) {
+    return res.status(401).json({ success: false, error: "auth_required" });
+  }
+  if (auth.role !== "SUIVI_ADMIN") {
+    return res.status(403).json({ success: false, error: "admin_required" });
   }
   req.suiviAuth = auth;
   return next();
@@ -752,6 +764,21 @@ router.post("/api/cases/:no/status", requireSuiviWrite, async (req, res) => {
         error: "Erreur lors de la mise à jour du statut"
       });
     }
+  }
+});
+
+// DELETE /api/cases/:no - Supprimer un dossier (SUIVI_ADMIN uniquement)
+router.delete("/api/cases/:no", requireSuiviAdmin, async (req, res) => {
+  try {
+    const caseNo = req.params.no;
+    await dataManager.deleteCase(caseNo);
+    res.json({ success: true, message: `Dossier ${caseNo} supprimé` });
+  } catch (error) {
+    console.error(`Erreur DELETE /api/cases/${req.params.no}:`, error);
+    if (error.message.includes("introuvable")) {
+      return res.status(404).json({ success: false, error: `Dossier ${req.params.no} introuvable` });
+    }
+    res.status(500).json({ success: false, error: "Erreur lors de la suppression du dossier" });
   }
 });
 

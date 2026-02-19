@@ -207,6 +207,24 @@ class FTPDataManager {
     return regles;
   }
 
+  async deleteCase(caseNo) {
+    const data = await this.getData(false);
+
+    const caseIndex = data.atelier.findIndex(c =>
+      String(c.no) === String(caseNo)
+    );
+
+    if (caseIndex === -1) {
+      throw new Error(`Dossier ${caseNo} introuvable`);
+    }
+
+    data.atelier.splice(caseIndex, 1);
+    data._metadata.lastUpdate = new Date().toISOString();
+    data._metadata.totalDossiers = data.atelier.length;
+
+    await this.uploadData(data);
+  }
+
   clearCache() {
     this.localCache = null;
     this.lastFetch = null;

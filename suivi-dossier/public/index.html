@@ -213,6 +213,64 @@
     overflow-x: hidden !important;
     overflow-y: auto !important;
   }
+
+  /* Boutons admin */
+  .btnEdit {
+    appearance:none; border:1px solid #0e7490; background:#ecfeff; color:#0e7490;
+    padding:6px 9px; border-radius:10px; font-weight:700; cursor:pointer; font-size:.85rem;
+    white-space:nowrap;
+  }
+  .btnEdit:hover { background:#cffafe; }
+  .btnDelete {
+    appearance:none; border:1px solid #b91c1c; background:#fef2f2; color:#b91c1c;
+    padding:6px 9px; border-radius:10px; font-weight:700; cursor:pointer; font-size:.85rem;
+    white-space:nowrap;
+  }
+  .btnDelete:hover { background:#fee2e2; }
+
+  /* Modale édition admin */
+  .editMask {
+    position:fixed; inset:0; background:#0009; display:none;
+    align-items:flex-start; justify-content:center; z-index:30000; padding:16px;
+  }
+  .editBox {
+    width:min(780px,96vw); max-height:min(92vh,860px); background:#fff;
+    border-radius:14px; overflow:auto; border:1px solid #e5e7eb; margin-top:10px;
+  }
+  .editBar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; border-bottom:1px solid #e5e7eb; background:#f0fdf4;
+    position:sticky; top:0; z-index:1;
+  }
+  .editBar h2 { margin:0; font-size:1rem; color:#065f46; }
+  .editContent { padding:16px; }
+  .editSection { margin-bottom:18px; }
+  .editSection h3 { margin:0 0 10px; color:#0b4a6f; font-size:.93rem; border-bottom:1px solid #e5e7eb; padding-bottom:4px; }
+  .editGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .editField { display:flex; flex-direction:column; gap:4px; }
+  .editField label { font-weight:700; font-size:.82rem; color:#374151; }
+  .editField input, .editField select, .editField textarea {
+    padding:7px 9px; border:1px solid #d1d5db; border-radius:8px; font-size:.9rem; font-family:inherit;
+  }
+  .editField textarea { resize:vertical; min-height:80px; }
+  .editFooter {
+    display:flex; gap:10px; justify-content:flex-end;
+    padding:12px 14px; border-top:1px solid #e5e7eb; background:#f9fafb;
+    position:sticky; bottom:0;
+  }
+  .btnEditSave {
+    padding:9px 20px; background:#004080; color:#fff; border:0;
+    border-radius:10px; font-weight:700; font-size:.92rem; cursor:pointer;
+  }
+  .btnEditCancel {
+    padding:9px 16px; background:#fff; color:#374151; border:1px solid #d1d5db;
+    border-radius:10px; font-weight:700; font-size:.92rem; cursor:pointer;
+  }
+  .adminBadge {
+    display:inline-block; background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
+    border-radius:999px; padding:2px 10px; font-size:.78rem; font-weight:700;
+    margin-left:10px; vertical-align:middle;
+  }
 </style>
 </head>
 <body>
@@ -365,9 +423,28 @@
   </div>
 </div>
 
+<!-- Modale édition admin -->
+<div class="editMask" id="editMask" aria-hidden="true">
+  <div class="editBox" role="dialog" aria-label="Modifier le dossier">
+    <div class="editBar">
+      <h2 id="editTitle">Modifier le dossier</h2>
+      <div style="display:flex;gap:8px;">
+        <button class="btnEditCancel" id="editCancel">Annuler</button>
+        <button class="btnEditSave" id="editSave">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div class="editContent" id="editContent"></div>
+    <div class="editFooter">
+      <button class="btnEditCancel" id="editCancel2">Annuler</button>
+      <button class="btnEditSave" id="editSave2">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let LIMITED_VIEW = false;
 let VIEW_MODE    = "ALL";
+let IS_ADMIN     = false;
 
 const API_BASE =
   (location.hostname.includes("wixsite.com") || location.hostname.endsWith(".wix.com"))
@@ -732,11 +809,20 @@ function draw(){
               `).join("")}
             </select>
             <button class="btnSave">Valider</button>
+            ${IS_ADMIN ? `<button class="btnEdit">✏️</button>` : ""}
+            ${IS_ADMIN ? `<button class="btnDelete">🗑️</button>` : ""}
           </div>
         </td>
       `;
 
       tr.querySelector(".btnView").addEventListener("click", ()=> openDetails(r));
+
+      if (IS_ADMIN) {
+        const editBtn = tr.querySelector(".btnEdit");
+        if (editBtn) editBtn.addEventListener("click", () => openEditModal(r));
+        const deleteBtn = tr.querySelector(".btnDelete");
+        if (deleteBtn) deleteBtn.addEventListener("click", () => deleteDossier(r, tr));
+      }
 
       tr.querySelector(".btnSave").addEventListener("click", async ()=>{
         if (LIMITED_VIEW) return;
@@ -971,6 +1057,175 @@ function load(){
   })();
 }
 
+// ─── ADMIN : Modifier / Supprimer ────────────────────────────────────────────
+let _editRow = null;
+
+function openEditModal(row) {
+  _editRow = row;
+  const h = (row.snapshot && row.snapshot.header) || {};
+  const cul = (row.snapshot && row.snapshot.culasse) || {};
+  const inj = (row.snapshot && row.snapshot.injecteur) || {};
+  const com = (row.snapshot && row.snapshot.commentaires) || "";
+  const svc = h.service || row.service || "";
+
+  document.getElementById("editTitle").textContent =
+    `Modifier dossier ${String(row.no).padStart(5,"0")} — ${svc}`;
+
+  const etaOpts = ["","1","2","3","4","5","6","7","8","9","10"]
+    .map(v => `<option value="${v}" ${String(row.estimation ?? "") === v ? "selected" : ""}>${v || "—"}</option>`)
+    .join("");
+
+  const statusOpts = getStatusLabelsForService(row.service)
+    .map(lbl => `<option value="${lbl}" ${row.status === lbl ? "selected" : ""}>${displayStatusLabel(lbl)}</option>`)
+    .join("");
+
+  document.getElementById("editContent").innerHTML = `
+    <div class="editSection">
+      <h3>Statut &amp; Estimation</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Statut</label><select id="ef_status">${statusOpts}</select></div>
+        <div class="editField"><label>Estimation Temps Travaux (Jours)</label><select id="ef_estimation">${etaOpts}</select></div>
+      </div>
+    </div>
+    <div class="editSection">
+      <h3>Informations client</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Magasin</label><input id="ef_magasin" value="${esc(h.magasin||row.magasin||"")}"></div>
+        <div class="editField"><label>Client</label><input id="ef_client" value="${esc(h.client||row.client||"")}"></div>
+        <div class="editField"><label>N° de compte</label><input id="ef_compte" value="${esc(h.compte||row.compte||"")}"></div>
+        <div class="editField"><label>Téléphone</label><input id="ef_telephone" value="${esc(h.telephone||"")}"></div>
+        <div class="editField"><label>Email</label><input id="ef_email" value="${esc(h.email||"")}"></div>
+        <div class="editField"><label>Véhicule</label><input id="ef_vehicule" value="${esc(h.vehicule||"")}"></div>
+        <div class="editField"><label>Immatriculation</label><input id="ef_immat" value="${esc(h.immat||"")}"></div>
+        <div class="editField"><label>Date de demande</label><input id="ef_dateDemande" value="${esc(h.dateDemande||row.demandeDate||"")}"></div>
+      </div>
+    </div>
+    ${svc === "Rectification Culasse" ? `
+    <div class="editSection">
+      <h3>Détails Culasse</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Segment (VL/PL)</label><input id="ef_segment" value="${esc(cul.segment||"")}"></div>
+        <div class="editField"><label>Cylindre</label><input id="ef_cylindre" value="${esc(cul.cylindre||"")}"></div>
+        <div class="editField"><label>Soupapes</label><input id="ef_soupapes" value="${esc(cul.soupapes||"")}"></div>
+        <div class="editField"><label>Carburant</label><input id="ef_carburant" value="${esc(cul.carburant||"")}"></div>
+      </div>
+    </div>` : ""}
+    ${(svc === "Contrôle injection Diesel" || svc === "Contrôle injection Essence") ? `
+    <div class="editSection">
+      <h3>Détails Injection</h3>
+      <div class="editGrid">
+        <div class="editField"><label>Type</label><input id="ef_injType" value="${esc(inj.type||"")}"></div>
+        <div class="editField"><label>Nombre d'injecteurs</label><input id="ef_injNombre" value="${esc(inj.nombre||"")}"></div>
+      </div>
+    </div>` : ""}
+    <div class="editSection">
+      <h3>Commentaires</h3>
+      <div class="editField"><textarea id="ef_commentaires">${esc(com)}</textarea></div>
+    </div>
+  `;
+
+  const editMask = document.getElementById("editMask");
+  editMask.style.display = "flex";
+  editMask.setAttribute("aria-hidden","false");
+}
+
+function closeEditModal() {
+  const editMask = document.getElementById("editMask");
+  editMask.style.display = "none";
+  editMask.setAttribute("aria-hidden","true");
+  document.getElementById("editContent").innerHTML = "";
+  _editRow = null;
+}
+
+async function saveEditModal() {
+  if (!_editRow) return;
+  const row = _editRow;
+  const get = (id) => { const el = document.getElementById(id); return el ? el.value : null; };
+
+  const status = get("ef_status") || row.status;
+  const estVal = get("ef_estimation");
+  const estimation = estVal !== null ? (estVal ? Number(estVal) : "") : row.estimation;
+
+  const newSnapshot = JSON.parse(JSON.stringify(row.snapshot || {}));
+  if (!newSnapshot.header) newSnapshot.header = {};
+
+  ["magasin","client","compte","telephone","email","vehicule","immat","dateDemande"].forEach(f => {
+    const v = get(`ef_${f}`); if (v !== null) newSnapshot.header[f] = v;
+  });
+
+  const com = get("ef_commentaires");
+  if (com !== null) newSnapshot.commentaires = com;
+
+  const svc = newSnapshot.header.service || row.service || "";
+  if (svc === "Rectification Culasse") {
+    if (!newSnapshot.culasse) newSnapshot.culasse = {};
+    ["segment","cylindre","soupapes","carburant"].forEach(f => {
+      const v = get(`ef_${f}`); if (v !== null) newSnapshot.culasse[f] = v;
+    });
+  }
+  if (svc.startsWith("Contrôle injection")) {
+    if (!newSnapshot.injecteur) newSnapshot.injecteur = {};
+    const t = get("ef_injType"); if (t !== null) newSnapshot.injecteur.type = t;
+    const n = get("ef_injNombre"); if (n !== null) newSnapshot.injecteur.nombre = n;
+  }
+
+  const updates = {
+    status, estimation,
+    magasin: newSnapshot.header.magasin || row.magasin,
+    compte:  newSnapshot.header.compte  || row.compte,
+    client:  newSnapshot.header.client  || row.client,
+    demandeDate: newSnapshot.header.dateDemande || row.demandeDate,
+    snapshot: newSnapshot
+  };
+
+  const s1 = document.getElementById("editSave");
+  const s2 = document.getElementById("editSave2");
+  try {
+    [s1,s2].forEach(b => { if(b){ b.disabled=true; b.textContent="Enregistrement…"; } });
+    const resp = await apiFetch(`/atelier/api/cases/${encodeURIComponent(row.no)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates)
+    });
+    if (!resp.ok) { alert(`Erreur lors de la sauvegarde (${resp.status})`); return; }
+    const data = await resp.json();
+    Object.assign(row, updates);
+    if (data.data) Object.assign(row, data.data);
+    closeEditModal();
+    draw();
+  } catch(e) {
+    alert("Erreur réseau : " + e.message);
+  } finally {
+    [s1,s2].forEach(b => { if(b){ b.disabled=false; b.textContent="💾 Enregistrer"; } });
+  }
+}
+
+async function deleteDossier(row, tr) {
+  const label = `Dossier ${String(row.no).padStart(5,"0")} — ${row.client||""} (${row.magasin||""})`;
+  if (!confirm(`⚠️ Supprimer définitivement ce dossier ?\n\n${label}\n\nCette action est irréversible.`)) return;
+  try {
+    const resp = await apiFetch(`/atelier/api/cases/${encodeURIComponent(row.no)}`, { method: "DELETE" });
+    if (!resp.ok) { alert(`Erreur lors de la suppression (${resp.status})`); return; }
+    const idx = rows.findIndex(r => String(r.no) === String(row.no));
+    if (idx !== -1) rows.splice(idx, 1);
+    tr.remove();
+    if ($tbody.querySelectorAll("tr").length === 0) {
+      $tbody.innerHTML = `<tr><td colspan="9" style="padding:14px 10px;color:#334155">Aucun dossier.</td></tr>`;
+    }
+  } catch(e) {
+    alert("Erreur réseau : " + e.message);
+  }
+}
+
+document.getElementById("editCancel").addEventListener("click", closeEditModal);
+document.getElementById("editCancel2").addEventListener("click", closeEditModal);
+document.getElementById("editSave").addEventListener("click", saveEditModal);
+document.getElementById("editSave2").addEventListener("click", saveEditModal);
+document.getElementById("editMask").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeEditModal();
+});
+// ─── fin ADMIN ───────────────────────────────────────────────────────────────
+
 $filter.addEventListener("change", draw);
 $q.addEventListener("input", draw);
 if ($filterService) $filterService.addEventListener("change", draw);
@@ -991,16 +1246,23 @@ if ($filterService) $filterService.addEventListener("change", draw);
     if (saved && input) input.value = saved;
   } catch {}
 
-  function startApp(){
-    if (errBox) errBox.textContent = "";
-    if (overlay) overlay.style.display = "none";
-    load();
-  }
-
   function applySession(payload){
     LIMITED_VIEW = Boolean(payload?.isLimited);
     VIEW_MODE = String(payload?.viewMode || payload?.role || "ALL").toUpperCase();
     if (!VIEW_MODE) VIEW_MODE = "ALL";
+    IS_ADMIN = Boolean(payload?.isAdmin);
+  }
+
+  function startApp(){
+    if (errBox) errBox.textContent = "";
+    if (overlay) overlay.style.display = "none";
+    if (IS_ADMIN) {
+      const h1 = document.querySelector("h1");
+      if (h1 && !h1.querySelector(".adminBadge")) {
+        h1.insertAdjacentHTML("beforeend", '<span class="adminBadge">⚙️ Admin</span>');
+      }
+    }
+    load();
   }
 
   async function restoreSession(){
