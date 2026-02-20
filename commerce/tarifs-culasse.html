@@ -164,8 +164,11 @@
   
 <script>
   const CFG_URLS = [
+    // on tente d'abord en local (si un jour tu poses un config.js sur documentsdurand.fr),
+    // puis les configs Render (actuels)
     "/atelier/config.js",
-    "/atelier/config.js"
+    "https://mes-formulaires.onrender.com/atelier/config.js",
+    "https://durandservicesgarantie.onrender.com/atelier/config.js"
   ];
   const LS_KEY_GS = "dsg_last_gs_url";
 
@@ -183,7 +186,7 @@
   async function loadAtelierConfig() {
     if (window.__ATELIER_CFG && window.__ATELIER_CFG.GS_URL) {
       try { localStorage.setItem(LS_KEY_GS, window.__ATELIER_CFG.GS_URL); } catch(_) {}
-      return window.__ATELIER_CFG;
+      return { ...window.__ATELIER_CFG, __CFG_ORIGIN: location.origin };
     }
 
     for (const url of CFG_URLS) {
@@ -192,7 +195,7 @@
           await loadScriptOnce(url);
           if (window.__ATELIER_CFG && window.__ATELIER_CFG.GS_URL) {
             try { localStorage.setItem(LS_KEY_GS, window.__ATELIER_CFG.GS_URL); } catch(_) {}
-            return window.__ATELIER_CFG;
+            return { ...window.__ATELIER_CFG, __CFG_ORIGIN: new URL(url, location.href).origin };
           }
         } catch (e) {
         }
@@ -201,7 +204,7 @@
 
     try {
       const cached = localStorage.getItem(LS_KEY_GS);
-      if (cached) return { GS_URL: cached, _cached: true };
+      if (cached) return { GS_URL: cached, _cached: true, __CFG_ORIGIN: location.origin };
     } catch (_) {}
 
     throw new Error("config_introuvable");
@@ -250,7 +253,7 @@
       );
 
       const score = r => {
-        const vlpl = norm(r.vl_pl || r['vl/pl'] || r.vlpl || '');
+        const vlpl = norm(r.vl_pl || r['vl/pl'] || r.vlpl || r.vlPl || '');
         const segU = norm(seg);
         let s = 0;
 
@@ -308,8 +311,16 @@
         '<ul>' + regles.map(r => {
           const ref = (r.reference||'').trim();
           const lib = (r.libelleref||r.libelleRef||'').trim();
-          const prix = (r.prixht || r.prixht===0) ? String(r.prixht) : '';
-          const priceLine = (prix && prix !== '0' && prix !== '0.00' && prix !== '0,00') ? `<div style="margin-left:0; font-weight:800; color:#0f172a;">${prix} € HT</div>` : '';
+          // ✅ le JSON a "prixHT" (H et T en majuscules)
+          const prix = r.prixHT ?? r.prixht ?? null;
+
+          let priceLine = '';
+          if (prix !== null && prix !== '' && !isNaN(prix)) {
+            const prixFormat = Number(prix).toFixed(2).replace('.', ',');
+            if (Number(prix) !== 0) {
+              priceLine = `<div style="margin-left:0; font-weight:800; color:#0f172a;">${prixFormat} € HT</div>`;
+            }
+          }
           return `<li><div><strong>${ref || '-'}</strong>${lib ? ' – ' + lib : ''}</div>${priceLine}</li>`;
         }).join('') + '</ul>';
     }
@@ -327,9 +338,31 @@
       const status = $('status');
       try{
         const cfg = await loadAtelierConfig();
-        APPSCRIPT_URL = (cfg && cfg.GS_URL) ? cfg.GS_URL : "";
-        if (!APPSCRIPT_URL) throw new Error("GS_ATELIER_URL introuvable.");
-        const r = await fetch(APPSCRIPT_URL, { cache:"no-store" });
+
+        // GS_URL peut être une URL absolue OU un chemin relatif (/atelier/api/config)
+        const gs = (cfg && cfg.GS_URL) ? String(cfg.GS_URL) : "";
+        if (!gs) throw new Error("GS_ATELIER_URL introuvable.");
+
+        APPSCRIPT_URL = gs.startsWith("/")
+          ? ((cfg.__CFG_ORIGIN || location.origin) + gs)
+          : gs;
+
+        // IMPORTANT: même comportement que la page atelier
+        const url = APPSCRIPT_URL + (APPSCRIPT_URL.includes("?") ? "&" : "?") + "type=atelier";
+
+        const r = await fetch(url, { cache:"no-store" });
+
+        // Si le serveur répond un "Not Found" (HTML/texte), on évite le crash JSON
+        const ct = (r.headers.get("content-type") || "").toLowerCase();
+        if (!r.ok) {
+          const txt = await r.text().catch(()=> "");
+          throw new Error("HTTP " + r.status + " sur " + url + (txt ? " | " + txt.slice(0,120) : ""));
+        }
+        if (!ct.includes("application/json")) {
+          const txt = await r.text().catch(()=> "");
+          throw new Error("Réponse non-JSON depuis " + url + " | " + txt.slice(0,160));
+        }
+
         const data = await r.json();
         REGLES = data.regles || [];
 
